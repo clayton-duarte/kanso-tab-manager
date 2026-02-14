@@ -155,19 +155,21 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
       bg="gray.900"
       borderBottomWidth="1px"
       borderColor="gray.700"
-      px={4}
+      pr={4}
       py={2}
     >
       <Flex justify="space-between" align="center">
-        <HStack gap={4}>
-          <Text
-            fontSize="lg"
-            fontWeight="bold"
-            color={`${accentColor}.400`}
-            letterSpacing="tight"
-          >
-            Kanso
-          </Text>
+        <HStack gap={0}>
+          <Box w="240px" px={4}>
+            <Text
+              fontSize="lg"
+              fontWeight="bold"
+              color={`${accentColor}.400`}
+              letterSpacing="tight"
+            >
+              Kanso
+            </Text>
+          </Box>
 
           <Tabs.Root
             value={activeProfileId || ''}
