@@ -146,11 +146,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ isSyncing: true, syncError: null })
 
     try {
-      // Validate PAT has gist write permissions (requires network)
+      // Validate PAT is valid (requires network)
       const isPatValid = await validatePat(pat)
       if (!isPatValid) {
         set({ 
-          syncError: 'Invalid PAT or missing Gist permissions. Ensure your token has read/write access to Gists.', 
+          syncError: 'Invalid GitHub Personal Access Token', 
           isSyncing: false 
         })
         return
@@ -192,17 +192,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ isSyncing: true, syncError: null })
 
     try {
-      // Validate PAT has gist write permissions
+      // Validate PAT is valid
       const isPatValid = await validatePat(pat)
       if (!isPatValid) {
         set({ 
-          syncError: 'Invalid PAT or missing Gist permissions. Ensure your token has read/write access to Gists.', 
+          syncError: 'Invalid GitHub Personal Access Token', 
           isSyncing: false 
         })
         return
       }
 
-      // Create new Gist
+      // Create new Gist (this validates write permissions)
       const gistId = await createNewGist(pat)
 
       // Create default profile
@@ -236,6 +236,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         name: 'Personal',
         accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
         createdAt: defaultProfile.createdAt,
+        workspaceOrder: [workspaceId],
       }, pat)
 
       // Save session
@@ -273,8 +274,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       })
 
     } catch (error) {
+      // Handle permission errors with a clearer message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create Gist'
+      const userMessage = errorMessage.includes('403') || errorMessage.includes('401')
+        ? 'Missing Gist permissions. Ensure your token has read/write access to Gists.'
+        : errorMessage
       set({
-        syncError: error instanceof Error ? error.message : 'Failed to create Gist',
+        syncError: userMessage,
         isSyncing: false,
       })
     }
@@ -419,14 +425,37 @@ export const useAppStore = create<AppStore>((set, get) => ({
         })
       }
 
+      // Sort workspaces by profile's workspaceOrder
+      const sortedWorkspaces: WorkspaceMeta[] = []
+      for (const profile of profiles) {
+        const settings = profileSettingsMap.get(profile.name)
+        const order = settings?.workspaceOrder || []
+        const profileWs = workspacesList.filter(w => w.profile === profile.name)
+        
+        // Sort by order array, then alphabetically for any not in order
+        profileWs.sort((a, b) => {
+          const aIndex = order.indexOf(a.id)
+          const bIndex = order.indexOf(b.id)
+          // If both in order, sort by order
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+          // If only a in order, a comes first
+          if (aIndex !== -1) return -1
+          // If only b in order, b comes first
+          if (bIndex !== -1) return 1
+          // Neither in order, sort alphabetically
+          return a.name.localeCompare(b.name)
+        })
+        sortedWorkspaces.push(...profileWs)
+      }
+
       // Load workspace data for active workspace and cache it
       const currentCache = get().workspaceDataCache
       const newCache = { ...currentCache }
 
       // Find active workspace
       let activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0]
-      let activeWorkspace = workspacesList.find(w => w.id === activeWorkspaceId)
-        || workspacesList.find(w => w.profile === activeProfile.name)
+      let activeWorkspace = sortedWorkspaces.find(w => w.id === activeWorkspaceId)
+        || sortedWorkspaces.find(w => w.profile === activeProfile.name)
 
       // Load active workspace data if not cached
       if (activeWorkspace && !newCache[activeWorkspace.id]) {
@@ -447,7 +476,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Save to portable cache
       await savePortable({
         profiles,
-        workspaces: workspacesList,
+        workspaces: sortedWorkspaces,
         workspaceDataCache: newCache,
       })
 
@@ -459,7 +488,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       set({
         profiles,
-        workspaces: workspacesList,
+        workspaces: sortedWorkspaces,
         workspaceDataCache: newCache,
         activeProfileId: activeProfile.id,
         activeWorkspaceId: activeWorkspace?.id || null,
@@ -676,6 +705,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           name,
           accentColor,
           createdAt: newProfile.createdAt,
+          workspaceOrder: [workspaceId],
         }, pat)
       } catch (error) {
         set({ syncError: 'Failed to sync new profile' })
@@ -780,6 +810,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (pat && gistId) {
       try {
         await updateGistFile(gistId, filename, serializeWorkspaceData(newWorkspaceData), pat)
+        
+        // Add new workspace to order array
+        const profileWorkspaces = get().workspaces.filter(w => w.profile === profile.name)
+        const workspaceOrder = profileWorkspaces.map(w => w.id)
+        saveProfileSettings(gistId, profile.name, {
+          name: profile.name,
+          accentColor: profile.accentColor,
+          createdAt: profile.createdAt,
+          workspaceOrder,
+        }, pat).catch(() => {
+          // Silently ignore - order sync is not critical
+        })
       } catch {
         set({ syncError: 'Failed to sync new workspace' })
       }
@@ -814,9 +856,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
     })
 
     // Sync deletion to Gist (non-blocking)
-    if (pat && gistId) {
+    if (pat && gistId && profile) {
       try {
         await deleteGistFile(gistId, workspace.filename, pat)
+        
+        // Update workspace order (remove deleted workspace)
+        const profileWorkspaces = remainingWorkspaces.filter(w => w.profile === profile.name)
+        const workspaceOrder = profileWorkspaces.map(w => w.id)
+        saveProfileSettings(gistId, profile.name, {
+          name: profile.name,
+          accentColor: profile.accentColor,
+          createdAt: profile.createdAt,
+          workspaceOrder,
+        }, pat).catch(() => {
+          // Silently ignore - order sync is not critical
+        })
       } catch { /* continue */ }
     }
 
@@ -846,7 +900,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   reorderWorkspaces: (oldIndex: number, newIndex: number) => {
-    const { workspaces, profiles, activeProfileId } = get()
+    const { workspaces, profiles, activeProfileId, pat, gistId } = get()
     const activeProfile = profiles.find(p => p.id === activeProfileId)
     
     if (!activeProfile) return
@@ -868,6 +922,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Save to portable cache
     const { workspaceDataCache } = get()
     savePortable({ profiles, workspaces: newWorkspaces, workspaceDataCache })
+
+    // Sync workspace order to Gist (non-blocking)
+    if (pat && gistId) {
+      const workspaceOrder = reordered.map(w => w.id)
+      saveProfileSettings(gistId, activeProfile.name, {
+        name: activeProfile.name,
+        accentColor: activeProfile.accentColor,
+        createdAt: activeProfile.createdAt,
+        workspaceOrder,
+      }, pat).catch(() => {
+        // Silently ignore - order sync is not critical
+      })
+    }
   },
 
   // ============================================================================
@@ -1032,10 +1099,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // Sync to Gist (non-blocking)
     if (pat && gistId && activeProfile) {
+      // Preserve workspace order when saving accent color
+      const profileWorkspaces = workspaces.filter(w => w.profile === activeProfile.name)
+      const workspaceOrder = profileWorkspaces.map(w => w.id)
+      
       saveProfileSettings(gistId, activeProfile.name, {
         name: activeProfile.name,
         accentColor,
         createdAt: activeProfile.createdAt,
+        workspaceOrder,
       }, pat).catch(() => {
         // Silently ignore - preference sync is not critical
       })

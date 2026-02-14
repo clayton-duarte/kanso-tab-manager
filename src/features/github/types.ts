@@ -38,11 +38,14 @@ export interface ProfileSettings {
   name: string
   accentColor: 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'cyan' | 'purple' | 'pink'
   createdAt: number
+  /** Ordered list of workspace IDs for this profile */
+  workspaceOrder?: string[]
 }
 
 export const DEFAULT_PROFILE_SETTINGS: Omit<ProfileSettings, 'name'> = {
   accentColor: 'gray',
   createdAt: Date.now(),
+  workspaceOrder: [],
 }
 
 /**

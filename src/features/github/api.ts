@@ -175,46 +175,17 @@ export function serializeWorkspaceData(data: WorkspaceData): string {
 }
 
 /**
- * Validate a PAT has gist write permissions by attempting to create and delete a test gist
+ * Validate a PAT is valid by checking if it can authenticate with GitHub
+ * Write permissions are validated by the actual Gist operations (createNewGist, updateGistFile)
  */
 export async function validatePat(pat: string): Promise<boolean> {
   try {
-    // First check if PAT is valid at all
-    const userResponse = await fetch(`${GITHUB_API_BASE}/user`, {
+    const response = await fetch(`${GITHUB_API_BASE}/user`, {
       method: 'GET',
       headers: createHeaders(pat),
     })
 
-    if (!userResponse.ok) {
-      return false
-    }
-
-    // Then verify gist write permissions by creating a test gist
-    const testGistResponse = await fetch(`${GITHUB_API_BASE}/gists`, {
-      method: 'POST',
-      headers: createHeaders(pat),
-      body: JSON.stringify({
-        description: 'Kanso PAT validation (will be deleted)',
-        public: false,
-        files: {
-          'test.txt': { content: 'validation' },
-        },
-      }),
-    })
-
-    if (!testGistResponse.ok) {
-      // PAT is valid but lacks gist write permission
-      return false
-    }
-
-    // Delete the test gist
-    const testGist = await testGistResponse.json() as GistResponse
-    await fetch(`${GITHUB_API_BASE}/gists/${testGist.id}`, {
-      method: 'DELETE',
-      headers: createHeaders(pat),
-    })
-
-    return true
+    return response.ok
   } catch {
     return false
   }
