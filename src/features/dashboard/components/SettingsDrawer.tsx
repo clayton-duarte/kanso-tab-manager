@@ -10,6 +10,7 @@ import {
   Portal,
   CloseButton,
   Link,
+  Dialog,
 } from '@chakra-ui/react'
 import {
   IconLogout,
@@ -39,6 +40,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
   const [editingPat, setEditingPat] = useState(false)
   const [newPat, setNewPat] = useState(pat || '')
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleClose = () => {
     onOpenChange(false)
@@ -59,20 +61,20 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
   }
 
   const handleDeleteGist = async () => {
-    if (confirm('Are you sure you want to delete the Gist and all your data? This cannot be undone.')) {
-      setIsDeleting(true)
-      try {
-        await deleteGistAndLogout()
-        handleClose()
-      } finally {
-        setIsDeleting(false)
-      }
+    setIsDeleting(true)
+    try {
+      await deleteGistAndLogout()
+      setShowDeleteConfirm(false)
+      handleClose()
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const gistUrl = gistId ? `https://gist.github.com/${gistId}` : ''
 
   return (
+    <>
     <Drawer.Root
       open={open}
       onOpenChange={(e) => onOpenChange(e.open)}
@@ -235,8 +237,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                     <Button
                       variant="outline"
                       colorPalette="red"
-                      onClick={handleDeleteGist}
-                      loading={isDeleting}
+                      onClick={() => setShowDeleteConfirm(true)}
                       justifyContent="flex-start"
                     >
                       <IconTrash size={18} />
@@ -253,5 +254,47 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
         </Drawer.Positioner>
       </Portal>
     </Drawer.Root>
+
+    {/* Delete Confirmation Dialog */}
+    <Dialog.Root
+      role="alertdialog"
+      open={showDeleteConfirm}
+      onOpenChange={(e) => setShowDeleteConfirm(e.open)}
+      placement="center"
+      size="sm"
+    >
+      <Portal>
+        <Dialog.Backdrop />
+        <Dialog.Positioner>
+          <Dialog.Content bg="gray.800" borderColor="gray.700" borderWidth="1px">
+            <Dialog.Header borderBottomWidth="1px" borderColor="gray.700">
+              <Dialog.Title color="white">Delete Gist?</Dialog.Title>
+            </Dialog.Header>
+            <Dialog.Body py={4}>
+              <Text color="gray.300">
+                Are you sure you want to delete the Gist and all your data? This action cannot be undone.
+              </Text>
+            </Dialog.Body>
+            <Dialog.Footer gap={3}>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorPalette="red"
+                onClick={handleDeleteGist}
+                loading={isDeleting}
+              >
+                <IconTrash size={16} />
+                Delete
+              </Button>
+            </Dialog.Footer>
+          </Dialog.Content>
+        </Dialog.Positioner>
+      </Portal>
+    </Dialog.Root>
+  </>
   )
 }
