@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { AppStore, AccentColor } from './types'
-import type { LinkItem, Profile, WorkspaceData, WorkspaceMeta } from '../github/types'
+import type { LinkItem, Profile, WorkspaceData, WorkspaceMeta, ProfileSettings } from '../github/types'
+import { DEFAULT_PROFILE_SETTINGS } from '../github/types'
 import { debounce } from '@/shared/utils/debounce'
-import { generateWorkspaceFilename, parseWorkspaceFilename } from '@/shared/utils/urlParser'
+import { generateWorkspaceFilename, parseWorkspaceFilename, parseProfileSettingsFilename, generateProfileSettingsFilename } from '@/shared/utils/urlParser'
 import {
   fetchGist,
   fetchGistFileContent,
@@ -14,8 +15,8 @@ import {
   validatePat,
   validateGist,
   createNewGist,
-  fetchPreferences,
-  savePreferences,
+  fetchProfileSettings,
+  saveProfileSettings,
 } from '../github/api'
 
 // Cache for workspace data (to avoid refetching)
@@ -88,12 +89,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       // Parse filenames to extract profiles and workspaces
       const profileSet = new Set<string>()
+      const profileSettingsMap = new Map<string, true>()  // Track which profiles have settings files
       const workspacesList: WorkspaceMeta[] = []
 
       for (const [filename, _file] of Object.entries(gist.files)) {
-        // Skip non-workspace files (like README.md)
+        // Skip non-JSON files (like README.md)
         if (!filename.endsWith('.json')) continue
 
+        // Check if it's a profile settings file
+        const profileFromSettings = parseProfileSettingsFilename(filename)
+        if (profileFromSettings) {
+          profileSet.add(profileFromSettings)
+          profileSettingsMap.set(profileFromSettings, true)
+          continue
+        }
+
+        // Check if it's a workspace file
         const parsed = parseWorkspaceFilename(filename)
         if (!parsed) continue
 
@@ -106,12 +117,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
         })
       }
 
-      // Create profile objects with deterministic IDs
-      const profiles: Profile[] = Array.from(profileSet).map((name) => ({
-        id: `profile-${name}`,  // Use deterministic ID based on profile name
-        name,
-        createdAt: Date.now(),
-      }))
+      // Fetch profile settings for each profile to get accent colors
+      const profileSettingsResults = await Promise.all(
+        Array.from(profileSet).map(async (name) => {
+          const settings = await fetchProfileSettings(gistId, name, pat)
+          return { name, settings }
+        })
+      )
+      const profileSettingsCache = new Map(
+        profileSettingsResults.map(({ name, settings }) => [name, settings])
+      )
+
+      // Create profile objects with deterministic IDs and accent colors
+      const profiles: Profile[] = Array.from(profileSet).map((name) => {
+        const settings = profileSettingsCache.get(name)
+        return {
+          id: `profile-${name}`,  // Use deterministic ID based on profile name
+          name,
+          createdAt: settings?.createdAt || Date.now(),
+          accentColor: settings?.accentColor || DEFAULT_PROFILE_SETTINGS.accentColor,
+        }
+      })
 
       // If no profiles exist, create a default one
       if (profiles.length === 0) {
@@ -119,6 +145,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           id: 'profile-default',
           name: 'Personal',
           createdAt: Date.now(),
+          accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
         })
       }
 
@@ -147,6 +174,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         }
       }
 
+      // Set accent color from active profile
+      const profileAccentColor = activeProfile.accentColor || DEFAULT_PROFILE_SETTINGS.accentColor
+      
       set({
         pat,
         gistId,
@@ -155,18 +185,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
         workspaces: workspacesList,
         activeProfileId: activeProfile.id,
         activeWorkspaceId: activeWorkspace?.id || null,
+        accentColor: profileAccentColor,
         isLoading: false,
       })
 
-      // Load preferences from Gist
-      try {
-        const prefs = await fetchPreferences(gistId, pat)
-        set({ accentColor: prefs.accentColor })
-        // Also save to chrome.storage.local for faster access on next load
-        await chrome.storage.local.set({ accentColor: prefs.accentColor })
-      } catch {
-        // Ignore preference loading errors
-      }
+      // Save accent color to chrome.storage.local for faster access on next load
+      await chrome.storage.local.set({ accentColor: profileAccentColor })
 
       // Load the active workspace data if one exists
       if (activeWorkspace) {
@@ -266,11 +290,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Store in chrome.storage.local
       await chrome.storage.local.set({ pat, gistId })
 
-      // Create default profile
+      // Create default profile with default accent color
+      const defaultAccentColor = DEFAULT_PROFILE_SETTINGS.accentColor
       const defaultProfile: Profile = {
         id: 'profile-Personal',  // Deterministic ID
         name: 'Personal',
         createdAt: Date.now(),
+        accentColor: defaultAccentColor,
       }
 
       // Create default workspace for the profile
@@ -293,17 +319,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Cache the workspace data
       workspaceDataCache[defaultWorkspaceId] = defaultWorkspaceData
 
-      // Save workspace to Gist
+      // Save workspace and profile settings to Gist
       try {
         await updateGistFile(gistId, defaultWorkspaceFilename, serializeWorkspaceData(defaultWorkspaceData), pat)
+        
+        // Save profile settings
+        const profileSettings: ProfileSettings = {
+          name: defaultProfile.name,
+          accentColor: defaultAccentColor,
+          createdAt: defaultProfile.createdAt,
+        }
+        await saveProfileSettings(gistId, defaultProfile.name, profileSettings, pat)
       } catch (error) {
-        console.error('Failed to create default workspace in Gist:', error)
+        console.error('Failed to create default files in Gist:', error)
       }
 
       // Save session state to storage for persistence (including profile workspace map)
       await chrome.storage.local.set({ 
         activeProfileId: defaultProfile.id,
         activeWorkspaceId: defaultWorkspaceId,
+        accentColor: defaultAccentColor,
         profileWorkspaceMap: { [defaultProfile.id]: defaultWorkspaceId }
       })
 
@@ -316,6 +351,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeProfileId: defaultProfile.id,
         activeWorkspaceId: defaultWorkspaceId,
         activeWorkspaceData: defaultWorkspaceData,
+        accentColor: defaultAccentColor,
         isLoading: false,
       })
     } catch (error) {
@@ -376,16 +412,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
       targetWorkspace = workspaces.find(w => w.profile === profile.name)
     }
 
+    // Apply profile's accent color
+    const profileAccentColor = profile.accentColor || DEFAULT_PROFILE_SETTINGS.accentColor
+
     set({
       activeProfileId: profileId,
       activeWorkspaceId: targetWorkspace?.id || null,
       activeWorkspaceData: targetWorkspace ? workspaceDataCache[targetWorkspace.id] || null : null,
+      accentColor: profileAccentColor,
     })
 
     // Save to session storage for persistence
     chrome.storage.local.set({ 
       activeProfileId: profileId,
-      activeWorkspaceId: targetWorkspace?.id || null
+      activeWorkspaceId: targetWorkspace?.id || null,
+      accentColor: profileAccentColor,
     })
 
     // Load workspace data if not cached
@@ -492,12 +533,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Create profile
   createProfile: async (name: string) => {
-    const { pat, gistId } = get()
+    const { pat, gistId, accentColor } = get()
+    
+    // Use current accent color for new profile (inherit from current)
+    const newAccentColor = accentColor || DEFAULT_PROFILE_SETTINGS.accentColor
     
     const newProfile: Profile = {
       id: `profile-${name}`,  // Deterministic ID
       name,
       createdAt: Date.now(),
+      accentColor: newAccentColor,
     }
 
     // Create default workspace for the new profile
@@ -526,6 +571,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeProfileId: newProfile.id,
       activeWorkspaceId: defaultWorkspaceId,
       activeWorkspaceData: defaultWorkspaceData,
+      accentColor: newAccentColor,
     }))
 
     // Save to session storage for persistence and update profile workspace map
@@ -535,15 +581,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
     chrome.storage.local.set({ 
       activeProfileId: newProfile.id,
       activeWorkspaceId: defaultWorkspaceId,
+      accentColor: newAccentColor,
       profileWorkspaceMap
     })
 
-    // Save workspace to Gist
+    // Save workspace and profile settings to Gist
     if (pat && gistId) {
       try {
+        // Save default workspace
         await updateGistFile(gistId, defaultWorkspaceFilename, serializeWorkspaceData(defaultWorkspaceData), pat)
+        
+        // Save profile settings
+        const profileSettings: ProfileSettings = {
+          name,
+          accentColor: newAccentColor,
+          createdAt: newProfile.createdAt,
+        }
+        await saveProfileSettings(gistId, name, profileSettings, pat)
       } catch (error) {
-        console.error('Failed to create default workspace in Gist:', error)
+        console.error('Failed to create profile files in Gist:', error)
       }
     }
   },
@@ -558,8 +614,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // Get workspaces to delete
     const workspacesToDelete = workspaces.filter(w => w.profile === profile.name)
     
-    // Delete workspace files from Gist
+    // Delete workspace files and profile settings from Gist
     if (pat && gistId) {
+      // Delete workspace files
       for (const workspace of workspacesToDelete) {
         try {
           await deleteGistFile(gistId, workspace.filename, pat)
@@ -567,6 +624,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         } catch {
           // Continue even if individual delete fails
         }
+      }
+      
+      // Delete profile settings file
+      try {
+        const profileSettingsFilename = generateProfileSettingsFilename(profile.name)
+        await deleteGistFile(gistId, profileSettingsFilename, pat)
+      } catch {
+        // Continue even if delete fails
       }
     }
 
@@ -873,16 +938,35 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Set accent color
   setAccentColor: async (accentColor: AccentColor) => {
-    const { pat, gistId } = get()
+    const { pat, gistId, activeProfileId, profiles } = get()
+    const activeProfile = profiles.find(p => p.id === activeProfileId)
+    
+    // Update accent color in state
     set({ accentColor })
+    
+    // Update the profile's accent color in the profiles array
+    if (activeProfile) {
+      set(state => ({
+        profiles: state.profiles.map(p => 
+          p.id === activeProfileId 
+            ? { ...p, accentColor } 
+            : p
+        )
+      }))
+    }
     
     // Save to chrome.storage.local for faster access
     await chrome.storage.local.set({ accentColor })
     
-    // Save to Gist for cross-device sync
-    if (pat && gistId) {
+    // Save to profile settings file in Gist for cross-device sync
+    if (pat && gistId && activeProfile) {
       try {
-        await savePreferences(gistId, { accentColor }, pat)
+        const profileSettings: ProfileSettings = {
+          name: activeProfile.name,
+          accentColor,
+          createdAt: activeProfile.createdAt,
+        }
+        await saveProfileSettings(gistId, activeProfile.name, profileSettings, pat)
       } catch {
         // Ignore save errors for preferences
       }

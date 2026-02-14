@@ -28,6 +28,21 @@ export interface Profile {
   id: string
   name: string
   createdAt: number
+  accentColor: 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'cyan' | 'purple' | 'pink'
+}
+
+/**
+ * Profile settings stored in [Profile].json
+ */
+export interface ProfileSettings {
+  name: string
+  accentColor: 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'cyan' | 'purple' | 'pink'
+  createdAt: number
+}
+
+export const DEFAULT_PROFILE_SETTINGS: Omit<ProfileSettings, 'name'> = {
+  accentColor: 'gray',
+  createdAt: Date.now(),
 }
 
 /**

@@ -141,13 +141,31 @@ export function generateWorkspaceFilename(profile: string, workspace: string): s
 }
 
 /**
+ * Generate filename for profile settings in the Gist
+ * Format: [Profile].json (no double underscore)
+ */
+export function generateProfileSettingsFilename(profile: string): string {
+  const sanitize = (str: string) =>
+    str
+      .replace(/[^a-zA-Z0-9\s-]/g, '')
+      .replace(/\s+/g, '_')
+      .substring(0, 50)
+  
+  return `${sanitize(profile)}.json`
+}
+
+/**
  * Parse workspace filename to extract profile and workspace names
+ * Returns null if it's not a workspace file (no __ separator)
  */
 export function parseWorkspaceFilename(filename: string): { profile: string; workspace: string } | null {
+  // Skip non-json files
+  if (!filename.endsWith('.json')) return null
+  
   // Remove .json extension
   const nameWithoutExt = filename.replace(/\.json$/, '')
   
-  // Split by __
+  // Split by __ - if no __, this is a profile settings file, not workspace
   const parts = nameWithoutExt.split('__')
   
   if (parts.length !== 2) {
@@ -158,4 +176,24 @@ export function parseWorkspaceFilename(filename: string): { profile: string; wor
     profile: parts[0].replace(/_/g, ' '),
     workspace: parts[1].replace(/_/g, ' '),
   }
+}
+
+/**
+ * Parse profile settings filename
+ * Returns profile name if it's a profile settings file (no __ separator)
+ */
+export function parseProfileSettingsFilename(filename: string): string | null {
+  // Skip non-json files or special files
+  if (!filename.endsWith('.json')) return null
+  if (filename.startsWith('_')) return null  // Skip _preferences.json
+  
+  // Remove .json extension
+  const nameWithoutExt = filename.replace(/\.json$/, '')
+  
+  // If it contains __, it's a workspace file, not profile settings
+  if (nameWithoutExt.includes('__')) {
+    return null
+  }
+  
+  return nameWithoutExt.replace(/_/g, ' ')
 }

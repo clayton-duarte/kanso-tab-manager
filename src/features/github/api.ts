@@ -1,5 +1,6 @@
-import type { GistResponse, GistUpdatePayload, WorkspaceData, Preferences } from './types'
-import { PREFERENCES_FILENAME, DEFAULT_PREFERENCES } from './types'
+import type { GistResponse, GistUpdatePayload, WorkspaceData, Preferences, ProfileSettings } from './types'
+import { PREFERENCES_FILENAME, DEFAULT_PREFERENCES, DEFAULT_PROFILE_SETTINGS } from './types'
+import { generateProfileSettingsFilename } from '@/shared/utils/urlParser'
 
 const GITHUB_API_BASE = 'https://api.github.com'
 
@@ -275,4 +276,38 @@ export async function fetchPreferences(gistId: string, pat: string): Promise<Pre
  */
 export async function savePreferences(gistId: string, preferences: Preferences, pat: string): Promise<void> {
   await updateGistFile(gistId, PREFERENCES_FILENAME, JSON.stringify(preferences, null, 2), pat)
+}
+
+/**
+ * Fetch profile settings from Gist
+ */
+export async function fetchProfileSettings(gistId: string, profileName: string, pat: string): Promise<ProfileSettings> {
+  try {
+    const filename = generateProfileSettingsFilename(profileName)
+    const gist = await fetchGist(gistId, pat)
+    const settingsFile = gist.files[filename]
+    
+    if (!settingsFile?.raw_url) {
+      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+    }
+    
+    const content = await fetchGistFileContent(settingsFile.raw_url, pat)
+    return JSON.parse(content) as ProfileSettings
+  } catch {
+    // If settings file doesn't exist, return defaults
+    return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+  }
+}
+
+/**
+ * Save profile settings to Gist
+ */
+export async function saveProfileSettings(
+  gistId: string, 
+  profileName: string, 
+  settings: ProfileSettings, 
+  pat: string
+): Promise<void> {
+  const filename = generateProfileSettingsFilename(profileName)
+  await updateGistFile(gistId, filename, JSON.stringify(settings, null, 2), pat)
 }
