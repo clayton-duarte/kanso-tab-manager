@@ -205,12 +205,43 @@ export async function createNewGist(pat: string): Promise<string> {
       public: false,
       files: {
         'README.md': {
-          content: '# Kanso Tab Manager Data\n\nThis Gist stores workspace data for the Kanso Tab Manager Chrome extension.\n\nDo not edit these files manually.',
+          content: '# Kanso Tab Manager Data\n\nInitializing...',
         },
       },
     }),
   })
 
   const gist = await handleResponse<GistResponse>(response)
+  
+  // Update README with Gist ID and sync instructions
+  const readmeContent = `# Kanso Tab Manager Data
+
+This Gist stores workspace data for the [Kanso Tab Manager](https://github.com/your-repo/kanso-tab-manager) Chrome extension.
+
+## ⚠️ Do not edit these files manually
+
+The JSON files in this Gist are managed by the extension. Manual edits may cause data loss.
+
+## 🔗 Sync to Another Device
+
+To connect this Gist to the Kanso extension on another browser or device:
+
+1. Install the Kanso Tab Manager extension
+2. On the welcome screen, select **"Restore / Connect to existing Gist"**
+3. Enter your GitHub Personal Access Token (with \`gist\` scope)
+4. Enter this Gist ID:
+
+\`\`\`
+${gist.id}
+\`\`\`
+
+Your workspaces and links will sync automatically.
+
+---
+*Managed by Kanso Tab Manager*
+`
+
+  await updateGistFile(gist.id, 'README.md', readmeContent, pat)
+  
   return gist.id
 }
