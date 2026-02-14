@@ -49,8 +49,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     try {
       // Load credentials and preferences from chrome.storage.local
-      const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor']) as { pat?: string; gistId?: string; accentColor?: AccentColor }
-      const { pat, gistId, accentColor } = result
+      const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor', 'activeProfileId', 'activeWorkspaceId']) as { 
+        pat?: string; 
+        gistId?: string; 
+        accentColor?: AccentColor;
+        activeProfileId?: string;
+        activeWorkspaceId?: string;
+      }
+      const { pat, gistId, accentColor, activeProfileId: savedProfileId, activeWorkspaceId: savedWorkspaceId } = result
       
       // Set accent color if stored
       if (accentColor) {
@@ -92,16 +98,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
         profileSet.add(parsed.profile)
         workspacesList.push({
-          id: nanoid(),
+          id: `ws-${filename}`,  // Use deterministic ID based on filename
           name: parsed.workspace,
           profile: parsed.profile,
           filename,
         })
       }
 
-      // Create profile objects
-      const profiles: Profile[] = Array.from(profileSet).map((name, index) => ({
-        id: `profile-${index}`,
+      // Create profile objects with deterministic IDs
+      const profiles: Profile[] = Array.from(profileSet).map((name) => ({
+        id: `profile-${name}`,  // Use deterministic ID based on profile name
         name,
         createdAt: Date.now(),
       }))
@@ -116,8 +122,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
 
       // Set initial active profile and workspace
-      const activeProfile = profiles[0]
-      const activeWorkspace = workspacesList.find(w => w.profile === activeProfile.name)
+      // Try to restore saved session, otherwise use defaults
+      let activeProfile = profiles[0]
+      let activeWorkspace = workspacesList.find(w => w.profile === activeProfile.name)
+
+      // Restore saved profile if it exists
+      if (savedProfileId) {
+        const savedProfile = profiles.find(p => p.id === savedProfileId)
+        if (savedProfile) {
+          activeProfile = savedProfile
+          // Try to restore saved workspace
+          if (savedWorkspaceId) {
+            const savedWorkspace = workspacesList.find(w => w.id === savedWorkspaceId && w.profile === savedProfile.name)
+            if (savedWorkspace) {
+              activeWorkspace = savedWorkspace
+            } else {
+              // Workspace not found, use first workspace in profile
+              activeWorkspace = workspacesList.find(w => w.profile === savedProfile.name)
+            }
+          } else {
+            activeWorkspace = workspacesList.find(w => w.profile === savedProfile.name)
+          }
+        }
+      }
 
       set({
         pat,
@@ -240,14 +267,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       // Create default profile
       const defaultProfile: Profile = {
-        id: nanoid(),
+        id: 'profile-Personal',  // Deterministic ID
         name: 'Personal',
         createdAt: Date.now(),
       }
 
       // Create default workspace for the profile
-      const defaultWorkspaceId = nanoid()
       const defaultWorkspaceFilename = generateWorkspaceFilename(defaultProfile.name, 'Default')
+      const defaultWorkspaceId = `ws-${defaultWorkspaceFilename}`  // Deterministic ID
       const defaultWorkspace: WorkspaceMeta = {
         id: defaultWorkspaceId,
         name: 'Default',
@@ -271,6 +298,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       } catch (error) {
         console.error('Failed to create default workspace in Gist:', error)
       }
+
+      // Save session state to storage for persistence
+      await chrome.storage.local.set({ 
+        activeProfileId: defaultProfile.id,
+        activeWorkspaceId: defaultWorkspaceId
+      })
 
       set({
         pat,
@@ -335,6 +368,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceData: firstWorkspace ? workspaceDataCache[firstWorkspace.id] || null : null,
     })
 
+    // Save to session storage for persistence
+    chrome.storage.local.set({ 
+      activeProfileId: profileId,
+      activeWorkspaceId: firstWorkspace?.id || null
+    })
+
     // Load workspace data if not cached
     if (firstWorkspace && !workspaceDataCache[firstWorkspace.id]) {
       get().switchWorkspace(firstWorkspace.id)
@@ -354,6 +393,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: workspaceId,
         activeWorkspaceData: workspaceDataCache[workspaceId],
       })
+      // Save to session storage for persistence
+      chrome.storage.local.set({ activeWorkspaceId: workspaceId })
       return
     }
 
@@ -412,6 +453,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceData: workspaceData,
         isLoading: false,
       })
+
+      // Save to session storage for persistence
+      chrome.storage.local.set({ activeWorkspaceId: workspaceId })
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load workspace',
@@ -425,14 +469,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const { pat, gistId } = get()
     
     const newProfile: Profile = {
-      id: nanoid(),
+      id: `profile-${name}`,  // Deterministic ID
       name,
       createdAt: Date.now(),
     }
 
     // Create default workspace for the new profile
-    const defaultWorkspaceId = nanoid()
     const defaultWorkspaceFilename = generateWorkspaceFilename(name, 'Default')
+    const defaultWorkspaceId = `ws-${defaultWorkspaceFilename}`  // Deterministic ID
     const defaultWorkspace: WorkspaceMeta = {
       id: defaultWorkspaceId,
       name: 'Default',
@@ -457,6 +501,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceId: defaultWorkspaceId,
       activeWorkspaceData: defaultWorkspaceData,
     }))
+
+    // Save to session storage for persistence
+    chrome.storage.local.set({ 
+      activeProfileId: newProfile.id,
+      activeWorkspaceId: defaultWorkspaceId
+    })
 
     // Save workspace to Gist
     if (pat && gistId) {
@@ -518,7 +568,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!profile) return
 
     const filename = generateWorkspaceFilename(profile.name, name)
-    const workspaceId = nanoid()
+    const workspaceId = `ws-${filename}`  // Deterministic ID
 
     const newWorkspace: WorkspaceMeta = {
       id: workspaceId,
@@ -543,6 +593,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceId: workspaceId,
       activeWorkspaceData: newWorkspaceData,
     }))
+
+    // Save to session storage for persistence
+    chrome.storage.local.set({ activeWorkspaceId: workspaceId })
 
     // Create file in Gist
     if (pat && gistId) {
