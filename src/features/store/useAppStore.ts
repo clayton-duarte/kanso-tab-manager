@@ -15,6 +15,7 @@ import {
   parseProfileSettingsFilename,
   generateProfileSettingsFilename,
 } from '@/shared/utils/urlParser';
+import { switchWorkspaceTabs } from '@/shared/utils/chromeTabs';
 import {
   loadSession,
   saveSession,
@@ -690,6 +691,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
       });
+
+      // Switch tabs to match workspace
+      const cachedData = workspaceDataCache[workspaceId];
+      switchWorkspaceTabs(
+        cachedData.links.map((link) => ({
+          url: link.url,
+          title: link.title,
+          pinned: link.pinned,
+        }))
+      );
+
       return;
     }
 
@@ -712,6 +724,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
           [workspaceId]: emptyData,
         },
       }));
+
+      // Close all tabs (empty workspace)
+      switchWorkspaceTabs([]);
+
       return;
     }
 
@@ -737,6 +753,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
             [workspaceId]: emptyData,
           },
         }));
+
+        // Close all tabs (empty workspace)
+        switchWorkspaceTabs([]);
+
         return;
       }
 
@@ -779,6 +799,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
       });
+
+      // Switch tabs to match workspace
+      switchWorkspaceTabs(
+        workspaceData.links.map((link) => ({
+          url: link.url,
+          title: link.title,
+          pinned: link.pinned,
+        }))
+      );
     } catch (error) {
       set({
         syncError:
