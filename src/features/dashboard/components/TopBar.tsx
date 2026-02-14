@@ -67,6 +67,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             onValueChange={(details) => switchProfile(details.value)}
             variant="line"
             size="sm"
+            colorPalette={accentColor}
           >
             <Tabs.List bg="transparent" borderBottomWidth={0}>
               {profiles.map(profile => (
@@ -76,13 +77,6 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                   px={3}
                   py={1.5}
                   fontSize="sm"
-                  color="gray.400"
-                  _selected={{ 
-                    color: `${accentColor}.300`, 
-                    borderBottomColor: `${accentColor}.500`,
-                    borderBottomWidth: '2px',
-                  }}
-                  _hover={{ color: `${accentColor}.400` }}
                 >
                   {profile.name}
                 </Tabs.Trigger>
@@ -98,15 +92,12 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     onKeyDown={handleKeyDown}
                     autoFocus
                     width="120px"
-                    bg="gray.800"
-                    borderColor="gray.600"
-                    _focus={{ borderColor: `${accentColor}.500` }}
                   />
                   <IconButton
                     aria-label="Confirm"
                     size="xs"
                     variant="ghost"
-                    color="green.400"
+                    colorPalette="green"
                     onClick={handleCreateProfile}
                   >
                     <IconCheck size={14} />
@@ -115,7 +106,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     aria-label="Cancel"
                     size="xs"
                     variant="ghost"
-                    color="red.400"
+                    colorPalette="red"
                     onClick={() => {
                       setIsCreating(false)
                       setNewProfileName('')
@@ -129,10 +120,9 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                   aria-label="Add profile"
                   size="xs"
                   variant="ghost"
-                  color="gray.500"
+                  colorPalette={accentColor}
                   ml={2}
                   onClick={() => setIsCreating(true)}
-                  _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
                 >
                   <IconPlus size={16} />
                 </IconButton>
@@ -151,9 +141,8 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             aria-label="Settings"
             variant="ghost"
             size="sm"
-            color="gray.400"
+            colorPalette={accentColor}
             onClick={onOpenSettings}
-            _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
           >
             <IconSettings size={20} />
           </IconButton>

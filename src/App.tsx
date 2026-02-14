@@ -21,7 +21,7 @@ function App() {
         justify="center"
         bg="gray.900"
       >
-        <Spinner size="xl" color={`${accentColor}.500`} />
+        <Spinner size="xl" colorPalette={accentColor} />
       </Flex>
     )
   }

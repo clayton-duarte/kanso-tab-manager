@@ -89,9 +89,8 @@ export function Sidebar() {
           aria-label="Add workspace"
           size="xs"
           variant="ghost"
-          color="gray.500"
+          colorPalette={accentColor}
           onClick={() => setIsCreating(true)}
-          _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
         >
           <IconPlus size={14} />
         </IconButton>
@@ -111,7 +110,6 @@ export function Sidebar() {
             color={activeWorkspaceId === workspace.id ? `${accentColor}.300` : 'gray.400'}
             borderLeftWidth="2px"
             borderLeftColor={activeWorkspaceId === workspace.id ? `${accentColor}.500` : 'transparent'}
-            _hover={{ bg: `${accentColor}.900/30`, color: `${accentColor}.300` }}
             onClick={() => switchWorkspace(workspace.id)}
             onMouseEnter={() => setHoveredWorkspaceId(workspace.id)}
             onMouseLeave={() => setHoveredWorkspaceId(null)}
@@ -125,9 +123,8 @@ export function Sidebar() {
                 aria-label="Delete workspace"
                 size="xs"
                 variant="ghost"
-                color="gray.500"
+                colorPalette="red"
                 onClick={(e) => handleDeleteWorkspace(e, workspace.id)}
-                _hover={{ color: 'red.400' }}
               >
                 <IconTrash size={14} />
               </IconButton>
@@ -144,15 +141,12 @@ export function Sidebar() {
               onChange={(e) => setNewWorkspaceName(e.target.value)}
               onKeyDown={handleKeyDown}
               autoFocus
-              bg="gray.800"
-              borderColor="gray.600"
-              _focus={{ borderColor: `${accentColor}.500` }}
             />
             <IconButton
               aria-label="Confirm"
               size="xs"
               variant="ghost"
-              color="green.400"
+              colorPalette="green"
               onClick={handleCreateWorkspace}
             >
               <IconCheck size={14} />
@@ -161,7 +155,7 @@ export function Sidebar() {
               aria-label="Cancel"
               size="xs"
               variant="ghost"
-              color="red.400"
+              colorPalette="red"
               onClick={() => {
                 setIsCreating(false)
                 setNewWorkspaceName('')

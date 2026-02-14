@@ -84,15 +84,14 @@ export function WelcomeScreen() {
           onValueChange={(details) => setMode(details.value as SetupMode)}
           w="100%"
           variant="enclosed"
+          colorPalette={accentColor}
         >
           <Tabs.List w="100%" bg="gray.900" borderRadius="lg" p={1}>
             <Tabs.Trigger
               value="new"
               flex={1}
               fontSize="sm"
-              color="gray.400"
               borderRadius="md"
-              _selected={{ bg: `${accentColor}.900/50`, color: `${accentColor}.300` }}
             >
               <IconSparkles size={16} />
               New Setup
@@ -101,9 +100,7 @@ export function WelcomeScreen() {
               value="existing"
               flex={1}
               fontSize="sm"
-              color="gray.400"
               borderRadius="md"
-              _selected={{ bg: `${accentColor}.900/50`, color: `${accentColor}.300` }}
             >
               <IconLink size={16} />
               Restore / Connect
@@ -126,10 +123,6 @@ export function WelcomeScreen() {
                 value={pat}
                 onChange={(e) => setPat(e.target.value)}
                 pl={10}
-                bg="gray.700"
-                borderColor="gray.600"
-                _hover={{ borderColor: 'gray.500' }}
-                _focus={{ borderColor: `${accentColor}.500` }}
               />
             </Box>
             <Text fontSize="xs" color="gray.500" mt={1}>
@@ -137,7 +130,7 @@ export function WelcomeScreen() {
               <Link
                 href="https://github.com/settings/personal-access-tokens/new"
                 target="_blank"
-                color={`${accentColor}.400`}
+                colorPalette={accentColor}
               >
                 Create one here
               </Link>
@@ -158,10 +151,6 @@ export function WelcomeScreen() {
                   value={gistId}
                   onChange={(e) => setGistId(e.target.value)}
                   pl={10}
-                  bg="gray.700"
-                  borderColor="gray.600"
-                  _hover={{ borderColor: 'gray.500' }}
-                  _focus={{ borderColor: `${accentColor}.500` }}
                 />
               </Box>
               <Text fontSize="xs" color="gray.500" mt={1}>

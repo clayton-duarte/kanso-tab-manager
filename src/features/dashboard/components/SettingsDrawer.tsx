@@ -8,7 +8,7 @@ import {
   HStack,
   Drawer,
   Portal,
-  CloseButton,
+  IconButton,
   Link,
   Dialog,
   SimpleGrid,
@@ -20,6 +20,7 @@ import {
   IconTrash,
   IconCheck,
   IconPalette,
+  IconX,
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useAppStore } from '@/features/store/useAppStore'
@@ -106,7 +107,13 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
             <Drawer.Header borderBottomWidth="1px" borderColor="gray.700">
               <Drawer.Title color="white">Settings</Drawer.Title>
               <Drawer.CloseTrigger asChild>
-                <CloseButton size="sm" color="gray.400" _hover={{ color: 'white' }} />
+                <IconButton
+                  aria-label="Close settings"
+                  size="sm"
+                  colorPalette={accentColor}
+                >
+                  <IconX size={18} />
+                </IconButton>
               </Drawer.CloseTrigger>
             </Drawer.Header>
 
@@ -129,9 +136,8 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         href={gistUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        color={`${accentColor}.300`}
+                        colorPalette={accentColor}
                         fontSize="sm"
-                        _hover={{ color: `${accentColor}.200`, textDecoration: 'underline' }}
                         display="flex"
                         alignItems="center"
                         gap={2}
@@ -154,10 +160,9 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                     </Text>
                     {!editingPat && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="xs"
-                        color={`${accentColor}.300`}
-                        _hover={{ color: `${accentColor}.200` }}
+                        colorPalette={accentColor}
                         onClick={() => {
                           setNewPat(pat || '')
                           setEditingPat(true)
@@ -186,10 +191,6 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                           value={newPat}
                           onChange={(e) => setNewPat(e.target.value)}
                           pl={10}
-                          bg="gray.700"
-                          borderColor="gray.600"
-                          _hover={{ borderColor: 'gray.500' }}
-                          _focus={{ borderColor: `${accentColor}.500` }}
                         />
                       </Box>
                       <HStack gap={2}>
@@ -206,6 +207,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         <Button
                           size="sm"
                           variant="outline"
+                          colorPalette={accentColor}
                           onClick={() => {
                             setEditingPat(false)
                             setNewPat(pat || '')
@@ -250,8 +252,6 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         bg={`${value}.500`}
                         borderWidth="2px"
                         borderColor={accentColor === value ? 'white' : 'transparent'}
-                        _hover={{ transform: 'scale(1.1)' }}
-                        transition="all 0.15s"
                         onClick={() => setAccentColor(value)}
                         cursor="pointer"
                       />
@@ -269,7 +269,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                     {/* Disconnect Button */}
                     <Button
                       variant="outline"
-                      colorPalette="gray"
+                      colorPalette={accentColor}
                       onClick={handleDisconnect}
                       justifyContent="flex-start"
                     >
@@ -325,6 +325,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
             <Dialog.Footer gap={3}>
               <Button
                 variant="outline"
+                colorPalette={accentColor}
                 onClick={() => setShowDeleteConfirm(false)}
               >
                 Cancel

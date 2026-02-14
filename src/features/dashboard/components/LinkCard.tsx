@@ -75,12 +75,6 @@ export function LinkCard({ link }: LinkCardProps) {
       p={4}
       cursor="pointer"
       position="relative"
-      transition="all 0.2s"
-      _hover={{
-        borderColor: `${accentColor}.400`,
-        transform: 'translateY(-2px)',
-        shadow: 'lg',
-      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleOpenLink}
@@ -108,9 +102,8 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label={link.pinned ? 'Unpin' : 'Pin'}
             size="xs"
             variant="ghost"
-            color={link.pinned ? `${accentColor}.400` : 'gray.500'}
+            colorPalette={accentColor}
             onClick={handleTogglePin}
-            _hover={{ color: `${accentColor}.400` }}
           >
             {link.pinned ? <IconPinnedFilled size={14} /> : <IconPin size={14} />}
           </IconButton>
@@ -118,12 +111,11 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label="Open in new tab"
             size="xs"
             variant="ghost"
-            color="gray.500"
+            colorPalette="blue"
             onClick={(e) => {
               e.stopPropagation()
               handleOpenLink()
             }}
-            _hover={{ color: 'blue.400' }}
           >
             <IconExternalLink size={14} />
           </IconButton>
@@ -131,9 +123,8 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label="Delete"
             size="xs"
             variant="ghost"
-            color="gray.500"
+            colorPalette="red"
             onClick={handleDelete}
-            _hover={{ color: 'red.400' }}
           >
             <IconTrash size={14} />
           </IconButton>
@@ -190,7 +181,6 @@ export function LinkCard({ link }: LinkCardProps) {
           fontSize="xs"
           color="gray.500"
           lineClamp={1}
-          _hover={{ color: `${accentColor}.400` }}
         >
           {domain}
         </Text>
