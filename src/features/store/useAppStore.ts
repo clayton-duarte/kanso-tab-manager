@@ -49,12 +49,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     try {
       // Load credentials and preferences from chrome.storage.local
-      const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor', 'activeProfileId', 'activeWorkspaceId']) as { 
+      const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor', 'activeProfileId', 'activeWorkspaceId', 'profileWorkspaceMap']) as { 
         pat?: string; 
         gistId?: string; 
         accentColor?: AccentColor;
         activeProfileId?: string;
         activeWorkspaceId?: string;
+        profileWorkspaceMap?: Record<string, string>;
       }
       const { pat, gistId, accentColor, activeProfileId: savedProfileId, activeWorkspaceId: savedWorkspaceId } = result
       
@@ -299,10 +300,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         console.error('Failed to create default workspace in Gist:', error)
       }
 
-      // Save session state to storage for persistence
+      // Save session state to storage for persistence (including profile workspace map)
       await chrome.storage.local.set({ 
         activeProfileId: defaultProfile.id,
-        activeWorkspaceId: defaultWorkspaceId
+        activeWorkspaceId: defaultWorkspaceId,
+        profileWorkspaceMap: { [defaultProfile.id]: defaultWorkspaceId }
       })
 
       set({
@@ -353,30 +355,42 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   // Switch profile
-  switchProfile: (profileId: string) => {
+  switchProfile: async (profileId: string) => {
     const { workspaces, profiles } = get()
     const profile = profiles.find(p => p.id === profileId)
     
     if (!profile) return
 
-    // Find first workspace in this profile
-    const firstWorkspace = workspaces.find(w => w.profile === profile.name)
+    // Load the profile workspace map to find last active workspace for this profile
+    const result = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
+    const profileWorkspaceMap = result.profileWorkspaceMap || {}
+    
+    // Try to find the last workspace used in this profile
+    const lastWorkspaceId = profileWorkspaceMap[profileId]
+    let targetWorkspace = lastWorkspaceId 
+      ? workspaces.find(w => w.id === lastWorkspaceId && w.profile === profile.name)
+      : null
+    
+    // Fall back to first workspace if last one not found
+    if (!targetWorkspace) {
+      targetWorkspace = workspaces.find(w => w.profile === profile.name)
+    }
 
     set({
       activeProfileId: profileId,
-      activeWorkspaceId: firstWorkspace?.id || null,
-      activeWorkspaceData: firstWorkspace ? workspaceDataCache[firstWorkspace.id] || null : null,
+      activeWorkspaceId: targetWorkspace?.id || null,
+      activeWorkspaceData: targetWorkspace ? workspaceDataCache[targetWorkspace.id] || null : null,
     })
 
     // Save to session storage for persistence
     chrome.storage.local.set({ 
       activeProfileId: profileId,
-      activeWorkspaceId: firstWorkspace?.id || null
+      activeWorkspaceId: targetWorkspace?.id || null
     })
 
     // Load workspace data if not cached
-    if (firstWorkspace && !workspaceDataCache[firstWorkspace.id]) {
-      get().switchWorkspace(firstWorkspace.id)
+    if (targetWorkspace && !workspaceDataCache[targetWorkspace.id]) {
+      get().switchWorkspace(targetWorkspace.id)
     }
   },
 
@@ -393,8 +407,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: workspaceId,
         activeWorkspaceData: workspaceDataCache[workspaceId],
       })
-      // Save to session storage for persistence
-      chrome.storage.local.set({ activeWorkspaceId: workspaceId })
+      // Save to session storage for persistence and update profile workspace map
+      const { activeProfileId } = get()
+      const result = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
+      const profileWorkspaceMap = result.profileWorkspaceMap || {}
+      if (activeProfileId) {
+        profileWorkspaceMap[activeProfileId] = workspaceId
+      }
+      chrome.storage.local.set({ activeWorkspaceId: workspaceId, profileWorkspaceMap })
       return
     }
 
@@ -454,8 +474,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         isLoading: false,
       })
 
-      // Save to session storage for persistence
-      chrome.storage.local.set({ activeWorkspaceId: workspaceId })
+      // Save to session storage for persistence and update profile workspace map
+      const { activeProfileId } = get()
+      const mapResult = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
+      const profileWorkspaceMap = mapResult.profileWorkspaceMap || {}
+      if (activeProfileId) {
+        profileWorkspaceMap[activeProfileId] = workspaceId
+      }
+      chrome.storage.local.set({ activeWorkspaceId: workspaceId, profileWorkspaceMap })
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load workspace',
@@ -502,10 +528,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceData: defaultWorkspaceData,
     }))
 
-    // Save to session storage for persistence
+    // Save to session storage for persistence and update profile workspace map
+    const result = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
+    const profileWorkspaceMap = result.profileWorkspaceMap || {}
+    profileWorkspaceMap[newProfile.id] = defaultWorkspaceId
     chrome.storage.local.set({ 
       activeProfileId: newProfile.id,
-      activeWorkspaceId: defaultWorkspaceId
+      activeWorkspaceId: defaultWorkspaceId,
+      profileWorkspaceMap
     })
 
     // Save workspace to Gist
@@ -594,8 +624,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceData: newWorkspaceData,
     }))
 
-    // Save to session storage for persistence
-    chrome.storage.local.set({ activeWorkspaceId: workspaceId })
+    // Save to session storage for persistence and update profile workspace map
+    const mapResult = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
+    const profileWorkspaceMap = mapResult.profileWorkspaceMap || {}
+    if (activeProfileId) {
+      profileWorkspaceMap[activeProfileId] = workspaceId
+    }
+    chrome.storage.local.set({ activeWorkspaceId: workspaceId, profileWorkspaceMap })
 
     // Create file in Gist
     if (pat && gistId) {

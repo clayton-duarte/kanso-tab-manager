@@ -54,7 +54,7 @@ export interface AppActions {
   deleteGistAndLogout: () => Promise<void>
   
   // Navigation
-  switchProfile: (profileId: string) => void
+  switchProfile: (profileId: string) => Promise<void>
   switchWorkspace: (workspaceId: string) => Promise<void>
   
   // Profile CRUD
