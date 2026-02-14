@@ -6,7 +6,7 @@ import {
   Flex,
   Input,
   HStack,
-} from '@chakra-ui/react'
+} from '@chakra-ui/react';
 import {
   IconPlus,
   IconFolder,
@@ -15,8 +15,8 @@ import {
   IconTrash,
   IconPencil,
   IconGripVertical,
-} from '@tabler/icons-react'
-import { useState } from 'react'
+} from '@tabler/icons-react';
+import { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -25,24 +25,24 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-} from '@dnd-kit/core'
+} from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { useAppStore } from '@/features/store/useAppStore'
-import type { WorkspaceMeta } from '@/features/github/types'
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useAppStore } from '@/features/store/useAppStore';
+import type { WorkspaceMeta } from '@/features/github/types';
 
 interface SortableWorkspaceItemProps {
-  workspace: WorkspaceMeta
-  isActive: boolean
-  accentColor: string
-  onSwitch: () => void
-  onStartRename: (e: React.MouseEvent) => void
-  onDelete: (e: React.MouseEvent) => void
+  workspace: WorkspaceMeta;
+  isActive: boolean;
+  accentColor: string;
+  onSwitch: () => void;
+  onStartRename: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
 }
 
 function SortableWorkspaceItem({
@@ -60,13 +60,13 @@ function SortableWorkspaceItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: workspace.id })
+  } = useSortable({ id: workspace.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  }
+  };
 
   return (
     <Flex
@@ -117,7 +117,7 @@ function SortableWorkspaceItem({
         <IconTrash size={14} />
       </IconButton>
     </Flex>
-  )
+  );
 }
 
 export function Sidebar() {
@@ -132,65 +132,73 @@ export function Sidebar() {
     renameWorkspace,
     reorderWorkspaces,
     accentColor,
-  } = useAppStore()
+  } = useAppStore();
 
-  const [isCreating, setIsCreating] = useState(false)
-  const [newWorkspaceName, setNewWorkspaceName] = useState('')
-  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null)
-  const [editingWorkspaceName, setEditingWorkspaceName] = useState('')
+  const [isCreating, setIsCreating] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
+    null
+  );
+  const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
 
   // Get current profile name
-  const activeProfile = profiles.find(p => p.id === activeProfileId)
-  
+  const activeProfile = profiles.find((p) => p.id === activeProfileId);
+
   // Filter workspaces for current profile
   const profileWorkspaces = workspaces.filter(
-    w => w.profile === activeProfile?.name
-  )
+    (w) => w.profile === activeProfile?.name
+  );
 
   const handleCreateWorkspace = async () => {
     if (newWorkspaceName.trim()) {
-      await createWorkspace(newWorkspaceName.trim())
-      setNewWorkspaceName('')
-      setIsCreating(false)
+      await createWorkspace(newWorkspaceName.trim());
+      setNewWorkspaceName('');
+      setIsCreating(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleCreateWorkspace()
+      handleCreateWorkspace();
     } else if (e.key === 'Escape') {
-      setIsCreating(false)
-      setNewWorkspaceName('')
+      setIsCreating(false);
+      setNewWorkspaceName('');
     }
-  }
+  };
 
-  const handleDeleteWorkspace = async (e: React.MouseEvent, workspaceId: string) => {
-    e.stopPropagation()
-    await deleteWorkspace(workspaceId)
-  }
+  const handleDeleteWorkspace = async (
+    e: React.MouseEvent,
+    workspaceId: string
+  ) => {
+    e.stopPropagation();
+    await deleteWorkspace(workspaceId);
+  };
 
-  const handleStartRename = (e: React.MouseEvent, workspace: { id: string; name: string }) => {
-    e.stopPropagation()
-    setEditingWorkspaceId(workspace.id)
-    setEditingWorkspaceName(workspace.name)
-  }
+  const handleStartRename = (
+    e: React.MouseEvent,
+    workspace: { id: string; name: string }
+  ) => {
+    e.stopPropagation();
+    setEditingWorkspaceId(workspace.id);
+    setEditingWorkspaceName(workspace.name);
+  };
 
   const handleRenameWorkspace = async () => {
     if (editingWorkspaceId && editingWorkspaceName.trim()) {
-      await renameWorkspace(editingWorkspaceId, editingWorkspaceName.trim())
+      await renameWorkspace(editingWorkspaceId, editingWorkspaceName.trim());
     }
-    setEditingWorkspaceId(null)
-    setEditingWorkspaceName('')
-  }
+    setEditingWorkspaceId(null);
+    setEditingWorkspaceName('');
+  };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleRenameWorkspace()
+      handleRenameWorkspace();
     } else if (e.key === 'Escape') {
-      setEditingWorkspaceId(null)
-      setEditingWorkspaceName('')
+      setEditingWorkspaceId(null);
+      setEditingWorkspaceName('');
     }
-  }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -201,22 +209,22 @@ export function Sidebar() {
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
-  )
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
+    const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = profileWorkspaces.findIndex(w => w.id === active.id)
-      const newIndex = profileWorkspaces.findIndex(w => w.id === over.id)
+      const oldIndex = profileWorkspaces.findIndex((w) => w.id === active.id);
+      const newIndex = profileWorkspaces.findIndex((w) => w.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        reorderWorkspaces(oldIndex, newIndex)
+        reorderWorkspaces(oldIndex, newIndex);
       }
     }
-  }
+  };
 
-  const workspaceIds = profileWorkspaces.map(w => w.id)
+  const workspaceIds = profileWorkspaces.map((w) => w.id);
 
   return (
     <Box
@@ -237,7 +245,12 @@ export function Sidebar() {
         borderBottomWidth="1px"
         borderColor="gray.700"
       >
-        <Text fontSize="xs" fontWeight="semibold" color="gray.400" textTransform="uppercase">
+        <Text
+          fontSize="xs"
+          fontWeight="semibold"
+          color="gray.400"
+          textTransform="uppercase"
+        >
           Workspaces
         </Text>
         <IconButton
@@ -257,8 +270,11 @@ export function Sidebar() {
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
-          <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
-            {profileWorkspaces.map(workspace => (
+          <SortableContext
+            items={workspaceIds}
+            strategy={verticalListSortingStrategy}
+          >
+            {profileWorkspaces.map((workspace) =>
               editingWorkspaceId === workspace.id ? (
                 <HStack key={workspace.id} gap={1} px={2}>
                   <Input
@@ -283,8 +299,8 @@ export function Sidebar() {
                     variant="ghost"
                     colorPalette={accentColor}
                     onClick={() => {
-                      setEditingWorkspaceId(null)
-                      setEditingWorkspaceName('')
+                      setEditingWorkspaceId(null);
+                      setEditingWorkspaceName('');
                     }}
                   >
                     <IconX size={14} />
@@ -301,7 +317,7 @@ export function Sidebar() {
                   onDelete={(e) => handleDeleteWorkspace(e, workspace.id)}
                 />
               )
-            ))}
+            )}
           </SortableContext>
         </DndContext>
 
@@ -331,8 +347,8 @@ export function Sidebar() {
               variant="ghost"
               colorPalette={accentColor}
               onClick={() => {
-                setIsCreating(false)
-                setNewWorkspaceName('')
+                setIsCreating(false);
+                setNewWorkspaceName('');
               }}
             >
               <IconX size={14} />
@@ -355,5 +371,5 @@ export function Sidebar() {
         )}
       </VStack>
     </Box>
-  )
+  );
 }

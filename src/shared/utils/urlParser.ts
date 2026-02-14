@@ -2,71 +2,75 @@
  * Parse dropped data to extract URL and title
  */
 export interface ParsedLink {
-  url: string
-  title: string
-  favicon?: string
+  url: string;
+  title: string;
+  favicon?: string;
 }
 
 /**
  * Extract URL from various drag data transfer formats
  */
-export function parseDroppedData(dataTransfer: DataTransfer): ParsedLink | null {
+export function parseDroppedData(
+  dataTransfer: DataTransfer
+): ParsedLink | null {
   // Try text/uri-list first (standard for URLs)
-  const uriList = dataTransfer.getData('text/uri-list')
+  const uriList = dataTransfer.getData('text/uri-list');
   if (uriList) {
-    const urls = uriList.split('\n').filter(line => !line.startsWith('#') && line.trim())
+    const urls = uriList
+      .split('\n')
+      .filter((line) => !line.startsWith('#') && line.trim());
     if (urls.length > 0) {
-      const url = urls[0].trim()
+      const url = urls[0].trim();
       return {
         url,
         title: extractTitleFromUrl(url),
         favicon: getFaviconUrl(url),
-      }
+      };
     }
   }
 
   // Try text/html for rich link data
-  const html = dataTransfer.getData('text/html')
+  const html = dataTransfer.getData('text/html');
   if (html) {
-    const parsed = parseHtmlForLink(html)
+    const parsed = parseHtmlForLink(html);
     if (parsed) {
       return {
         ...parsed,
         favicon: getFaviconUrl(parsed.url),
-      }
+      };
     }
   }
 
   // Fallback to text/plain
-  const text = dataTransfer.getData('text/plain')
+  const text = dataTransfer.getData('text/plain');
   if (text && isValidUrl(text)) {
     return {
       url: text.trim(),
       title: extractTitleFromUrl(text.trim()),
       favicon: getFaviconUrl(text.trim()),
-    }
+    };
   }
 
-  return null
+  return null;
 }
 
 /**
  * Parse HTML string to extract link URL and title
  */
 function parseHtmlForLink(html: string): { url: string; title: string } | null {
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, 'text/html')
-  
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
   // Look for anchor tag
-  const anchor = doc.querySelector('a')
+  const anchor = doc.querySelector('a');
   if (anchor?.href) {
     return {
       url: anchor.href,
       title: anchor.textContent?.trim() || extractTitleFromUrl(anchor.href),
-    }
+    };
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -74,31 +78,31 @@ function parseHtmlForLink(html: string): { url: string; title: string } | null {
  */
 export function extractTitleFromUrl(url: string): string {
   try {
-    const urlObj = new URL(url)
-    
+    const urlObj = new URL(url);
+
     // Get the pathname without leading/trailing slashes
-    const pathname = urlObj.pathname.replace(/^\/|\/$/g, '')
-    
+    const pathname = urlObj.pathname.replace(/^\/|\/$/g, '');
+
     if (pathname) {
       // Get the last segment of the path
-      const segments = pathname.split('/')
-      const lastSegment = segments[segments.length - 1]
-      
+      const segments = pathname.split('/');
+      const lastSegment = segments[segments.length - 1];
+
       // Clean up the segment (remove file extension, replace dashes/underscores)
       const cleaned = lastSegment
         .replace(/\.[^.]+$/, '') // Remove file extension
         .replace(/[-_]/g, ' ') // Replace dashes and underscores with spaces
-        .replace(/([a-z])([A-Z])/g, '$1 $2') // Add space before capital letters
-      
+        .replace(/([a-z])([A-Z])/g, '$1 $2'); // Add space before capital letters
+
       if (cleaned.length > 0 && cleaned.length < 100) {
-        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
       }
     }
-    
+
     // Fallback to hostname
-    return urlObj.hostname.replace(/^www\./, '')
+    return urlObj.hostname.replace(/^www\./, '');
   } catch {
-    return url
+    return url;
   }
 }
 
@@ -107,10 +111,10 @@ export function extractTitleFromUrl(url: string): string {
  */
 export function getFaviconUrl(url: string, size: number = 32): string {
   try {
-    const urlObj = new URL(url)
-    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=${size}`
+    const urlObj = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=${size}`;
   } catch {
-    return ''
+    return '';
   }
 }
 
@@ -119,10 +123,10 @@ export function getFaviconUrl(url: string, size: number = 32): string {
  */
 export function isValidUrl(str: string): boolean {
   try {
-    const url = new URL(str)
-    return url.protocol === 'http:' || url.protocol === 'https:'
+    const url = new URL(str);
+    return url.protocol === 'http:' || url.protocol === 'https:';
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -130,14 +134,17 @@ export function isValidUrl(str: string): boolean {
  * Generate filename for a workspace in the Gist
  * Format: [Profile]__[Workspace].json
  */
-export function generateWorkspaceFilename(profile: string, workspace: string): string {
+export function generateWorkspaceFilename(
+  profile: string,
+  workspace: string
+): string {
   const sanitize = (str: string) =>
     str
       .replace(/[^a-zA-Z0-9\s-]/g, '')
       .replace(/\s+/g, '_')
-      .substring(0, 50)
-  
-  return `${sanitize(profile)}__${sanitize(workspace)}.json`
+      .substring(0, 50);
+
+  return `${sanitize(profile)}__${sanitize(workspace)}.json`;
 }
 
 /**
@@ -149,33 +156,35 @@ export function generateProfileSettingsFilename(profile: string): string {
     str
       .replace(/[^a-zA-Z0-9\s-]/g, '')
       .replace(/\s+/g, '_')
-      .substring(0, 50)
-  
-  return `${sanitize(profile)}.json`
+      .substring(0, 50);
+
+  return `${sanitize(profile)}.json`;
 }
 
 /**
  * Parse workspace filename to extract profile and workspace names
  * Returns null if it's not a workspace file (no __ separator)
  */
-export function parseWorkspaceFilename(filename: string): { profile: string; workspace: string } | null {
+export function parseWorkspaceFilename(
+  filename: string
+): { profile: string; workspace: string } | null {
   // Skip non-json files
-  if (!filename.endsWith('.json')) return null
-  
+  if (!filename.endsWith('.json')) return null;
+
   // Remove .json extension
-  const nameWithoutExt = filename.replace(/\.json$/, '')
-  
+  const nameWithoutExt = filename.replace(/\.json$/, '');
+
   // Split by __ - if no __, this is a profile settings file, not workspace
-  const parts = nameWithoutExt.split('__')
-  
+  const parts = nameWithoutExt.split('__');
+
   if (parts.length !== 2) {
-    return null
+    return null;
   }
-  
+
   return {
     profile: parts[0].replace(/_/g, ' '),
     workspace: parts[1].replace(/_/g, ' '),
-  }
+  };
 }
 
 /**
@@ -184,16 +193,16 @@ export function parseWorkspaceFilename(filename: string): { profile: string; wor
  */
 export function parseProfileSettingsFilename(filename: string): string | null {
   // Skip non-json files or special files
-  if (!filename.endsWith('.json')) return null
-  if (filename.startsWith('_')) return null  // Skip _preferences.json
-  
+  if (!filename.endsWith('.json')) return null;
+  if (filename.startsWith('_')) return null; // Skip _preferences.json
+
   // Remove .json extension
-  const nameWithoutExt = filename.replace(/\.json$/, '')
-  
+  const nameWithoutExt = filename.replace(/\.json$/, '');
+
   // If it contains __, it's a workspace file, not profile settings
   if (nameWithoutExt.includes('__')) {
-    return null
+    return null;
   }
-  
-  return nameWithoutExt.replace(/_/g, ' ')
+
+  return nameWithoutExt.replace(/_/g, ' ');
 }

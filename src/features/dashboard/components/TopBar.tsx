@@ -1,62 +1,65 @@
-import { 
-  Box, 
-  Flex, 
+import {
+  Box,
+  Flex,
   Tabs,
-  IconButton, 
+  IconButton,
   Text,
   Input,
   HStack,
   ProgressCircle,
-} from '@chakra-ui/react'
-import { 
-  IconPlus, 
-  IconSettings,
-  IconCheck,
-  IconX,
-} from '@tabler/icons-react'
-import { useState } from 'react'
-import { useAppStore } from '@/features/store/useAppStore'
+} from '@chakra-ui/react';
+import { IconPlus, IconSettings, IconCheck, IconX } from '@tabler/icons-react';
+import { useState } from 'react';
+import { useAppStore } from '@/features/store/useAppStore';
 
 interface TopBarProps {
-  onOpenSettings: () => void
+  onOpenSettings: () => void;
 }
 
 export function TopBar({ onOpenSettings }: TopBarProps) {
-  const { profiles, activeProfileId, switchProfile, createProfile, isSaving, isSyncing, accentColor } = useAppStore()
-  const [isCreating, setIsCreating] = useState(false)
-  const [newProfileName, setNewProfileName] = useState('')
+  const {
+    profiles,
+    activeProfileId,
+    switchProfile,
+    createProfile,
+    isSaving,
+    isSyncing,
+    accentColor,
+  } = useAppStore();
+  const [isCreating, setIsCreating] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
 
   const handleCreateProfile = () => {
     if (newProfileName.trim()) {
-      createProfile(newProfileName.trim())
-      setNewProfileName('')
-      setIsCreating(false)
+      createProfile(newProfileName.trim());
+      setNewProfileName('');
+      setIsCreating(false);
     }
-  }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleCreateProfile()
+      handleCreateProfile();
     } else if (e.key === 'Escape') {
-      setIsCreating(false)
-      setNewProfileName('')
+      setIsCreating(false);
+      setNewProfileName('');
     }
-  }
+  };
 
   return (
-    <Box 
-      as="header" 
-      bg="gray.900" 
-      borderBottomWidth="1px" 
+    <Box
+      as="header"
+      bg="gray.900"
+      borderBottomWidth="1px"
       borderColor="gray.700"
       px={4}
       py={2}
     >
       <Flex justify="space-between" align="center">
         <HStack gap={4}>
-          <Text 
-            fontSize="lg" 
-            fontWeight="bold" 
+          <Text
+            fontSize="lg"
+            fontWeight="bold"
             color={`${accentColor}.400`}
             letterSpacing="tight"
           >
@@ -71,7 +74,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             colorPalette={accentColor}
           >
             <Tabs.List bg="transparent" borderBottomWidth={0}>
-              {profiles.map(profile => (
+              {profiles.map((profile) => (
                 <Tabs.Trigger
                   key={profile.id}
                   value={profile.id}
@@ -110,8 +113,8 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     variant="ghost"
                     colorPalette={accentColor}
                     onClick={() => {
-                      setIsCreating(false)
-                      setNewProfileName('')
+                      setIsCreating(false);
+                      setNewProfileName('');
                     }}
                   >
                     <IconX size={14} />
@@ -135,7 +138,11 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
 
         <HStack gap={2}>
           {(isSaving || isSyncing) && (
-            <ProgressCircle.Root value={null} size="xs" colorPalette={accentColor}>
+            <ProgressCircle.Root
+              value={null}
+              size="xs"
+              colorPalette={accentColor}
+            >
               <ProgressCircle.Circle>
                 <ProgressCircle.Track />
                 <ProgressCircle.Range />
@@ -154,5 +161,5 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         </HStack>
       </Flex>
     </Box>
-  )
+  );
 }

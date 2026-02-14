@@ -6,47 +6,47 @@ export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
   wait: number
 ): {
-  (...args: Parameters<T>): void
-  cancel: () => void
-  flush: () => void
+  (...args: Parameters<T>): void;
+  cancel: () => void;
+  flush: () => void;
 } {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null
-  let lastArgs: Parameters<T> | null = null
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let lastArgs: Parameters<T> | null = null;
 
   const debounced = (...args: Parameters<T>) => {
-    lastArgs = args
-    
+    lastArgs = args;
+
     if (timeoutId) {
-      clearTimeout(timeoutId)
+      clearTimeout(timeoutId);
     }
-    
+
     timeoutId = setTimeout(() => {
       if (lastArgs) {
-        func(...(lastArgs as Parameters<T>))
-        lastArgs = null
+        func(...(lastArgs as Parameters<T>));
+        lastArgs = null;
       }
-      timeoutId = null
-    }, wait)
-  }
+      timeoutId = null;
+    }, wait);
+  };
 
   debounced.cancel = () => {
     if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
+      clearTimeout(timeoutId);
+      timeoutId = null;
     }
-    lastArgs = null
-  }
+    lastArgs = null;
+  };
 
   debounced.flush = () => {
     if (timeoutId) {
-      clearTimeout(timeoutId)
-      timeoutId = null
+      clearTimeout(timeoutId);
+      timeoutId = null;
     }
     if (lastArgs) {
-      func(...(lastArgs as Parameters<T>))
-      lastArgs = null
+      func(...(lastArgs as Parameters<T>));
+      lastArgs = null;
     }
-  }
+  };
 
-  return debounced
+  return debounced;
 }

@@ -1,4 +1,4 @@
-import { Box, Grid, GridItem, SimpleGrid, Text, Flex } from '@chakra-ui/react'
+import { Box, Grid, GridItem, SimpleGrid, Text, Flex } from '@chakra-ui/react';
 import {
   DndContext,
   closestCenter,
@@ -7,25 +7,28 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-} from '@dnd-kit/core'
+} from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   rectSortingStrategy,
-} from '@dnd-kit/sortable'
-import { useState } from 'react'
-import { TopBar } from './components/TopBar'
-import { Sidebar } from './components/Sidebar'
-import { LinkCard } from './components/LinkCard'
-import { DropZone } from './components/DropZone'
-import { SettingsDrawer } from './components/SettingsDrawer'
-import { SyncStatusBanner } from './components/SyncStatusBanner'
-import { useAppStore, selectActiveWorkspaceData } from '@/features/store/useAppStore'
+} from '@dnd-kit/sortable';
+import { useState } from 'react';
+import { TopBar } from './components/TopBar';
+import { Sidebar } from './components/Sidebar';
+import { LinkCard } from './components/LinkCard';
+import { DropZone } from './components/DropZone';
+import { SettingsDrawer } from './components/SettingsDrawer';
+import { SyncStatusBanner } from './components/SyncStatusBanner';
+import {
+  useAppStore,
+  selectActiveWorkspaceData,
+} from '@/features/store/useAppStore';
 
 export function DashboardLayout() {
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const activeWorkspaceData = useAppStore(selectActiveWorkspaceData)
-  const reorderLinks = useAppStore(state => state.reorderLinks)
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
+  const reorderLinks = useAppStore((state) => state.reorderLinks);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -36,23 +39,27 @@ export function DashboardLayout() {
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
-  )
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
+    const { active, over } = event;
 
     if (over && active.id !== over.id && activeWorkspaceData) {
-      const oldIndex = activeWorkspaceData.links.findIndex(l => l.id === active.id)
-      const newIndex = activeWorkspaceData.links.findIndex(l => l.id === over.id)
+      const oldIndex = activeWorkspaceData.links.findIndex(
+        (l) => l.id === active.id
+      );
+      const newIndex = activeWorkspaceData.links.findIndex(
+        (l) => l.id === over.id
+      );
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        reorderLinks(oldIndex, newIndex)
+        reorderLinks(oldIndex, newIndex);
       }
     }
-  }
+  };
 
-  const links = activeWorkspaceData?.links || []
-  const linkIds = links.map(l => l.id)
+  const links = activeWorkspaceData?.links || [];
+  const linkIds = links.map((l) => l.id);
 
   return (
     <Grid
@@ -96,8 +103,11 @@ export function DashboardLayout() {
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext items={linkIds} strategy={rectSortingStrategy}>
-                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} gap={4}>
-                    {links.map(link => (
+                  <SimpleGrid
+                    columns={{ base: 1, md: 2, lg: 3, xl: 4 }}
+                    gap={4}
+                  >
+                    {links.map((link) => (
                       <LinkCard key={link.id} link={link} />
                     ))}
                   </SimpleGrid>
@@ -109,10 +119,7 @@ export function DashboardLayout() {
       </GridItem>
 
       {/* Settings Drawer */}
-      <SettingsDrawer
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
+      <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Grid>
-  )
+  );
 }

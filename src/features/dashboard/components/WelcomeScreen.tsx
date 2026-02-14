@@ -8,41 +8,53 @@ import {
   Link,
   Alert,
   Tabs,
-} from '@chakra-ui/react'
-import { IconBrandGithub, IconKey, IconFileCode, IconSparkles, IconLink } from '@tabler/icons-react'
-import { useState } from 'react'
-import { useAppStore } from '@/features/store/useAppStore'
+} from '@chakra-ui/react';
+import {
+  IconBrandGithub,
+  IconKey,
+  IconFileCode,
+  IconSparkles,
+  IconLink,
+} from '@tabler/icons-react';
+import { useState } from 'react';
+import { useAppStore } from '@/features/store/useAppStore';
 
-type SetupMode = 'new' | 'existing'
+type SetupMode = 'new' | 'existing';
 
 export function WelcomeScreen() {
-  const { setCredentials, setupWithNewGist, isSyncing, syncError, accentColor } = useAppStore()
-  const [pat, setPat] = useState('')
-  const [gistId, setGistId] = useState('')
-  const [mode, setMode] = useState<SetupMode>('new')
-  const [validationError, setValidationError] = useState<string | null>(null)
+  const {
+    setCredentials,
+    setupWithNewGist,
+    isSyncing,
+    syncError,
+    accentColor,
+  } = useAppStore();
+  const [pat, setPat] = useState('');
+  const [gistId, setGistId] = useState('');
+  const [mode, setMode] = useState<SetupMode>('new');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setValidationError(null)
+    e.preventDefault();
+    setValidationError(null);
 
     if (!pat.trim()) {
-      setValidationError('Please enter your GitHub Personal Access Token')
-      return
+      setValidationError('Please enter your GitHub Personal Access Token');
+      return;
     }
 
     if (mode === 'new') {
       // Create a new Gist automatically
-      await setupWithNewGist(pat.trim())
+      await setupWithNewGist(pat.trim());
     } else {
       // Connect to existing Gist
       if (!gistId.trim()) {
-        setValidationError('Please enter your Gist ID')
-        return
+        setValidationError('Please enter your Gist ID');
+        return;
       }
-      await setCredentials(pat.trim(), gistId.trim())
+      await setCredentials(pat.trim(), gistId.trim());
     }
-  }
+  };
 
   return (
     <Box
@@ -87,12 +99,7 @@ export function WelcomeScreen() {
           colorPalette={accentColor}
         >
           <Tabs.List w="100%" bg="gray.900" borderRadius="lg" p={1}>
-            <Tabs.Trigger
-              value="new"
-              flex={1}
-              fontSize="sm"
-              borderRadius="md"
-            >
+            <Tabs.Trigger value="new" flex={1} fontSize="sm" borderRadius="md">
               <IconSparkles size={16} />
               New Setup
             </Tabs.Trigger>
@@ -114,7 +121,13 @@ export function WelcomeScreen() {
               GitHub Personal Access Token
             </Text>
             <Box position="relative">
-              <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color="gray.500">
+              <Box
+                position="absolute"
+                left={3}
+                top="50%"
+                transform="translateY(-50%)"
+                color="gray.500"
+              >
                 <IconKey size={18} />
               </Box>
               <Input
@@ -144,7 +157,13 @@ export function WelcomeScreen() {
                 Gist ID
               </Text>
               <Box position="relative">
-                <Box position="absolute" left={3} top="50%" transform="translateY(-50%)" color="gray.500">
+                <Box
+                  position="absolute"
+                  left={3}
+                  top="50%"
+                  transform="translateY(-50%)"
+                  color="gray.500"
+                >
                   <IconFileCode size={18} />
                 </Box>
                 <Input
@@ -177,12 +196,11 @@ export function WelcomeScreen() {
           Your token is stored locally and never leaves your browser.
           {mode === 'new' && (
             <>
-              <br />
-              A private Gist will be created to store your data.
+              <br />A private Gist will be created to store your data.
             </>
           )}
         </Text>
       </VStack>
     </Box>
-  )
+  );
 }

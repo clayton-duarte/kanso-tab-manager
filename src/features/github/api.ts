@@ -1,21 +1,26 @@
-import type { GistResponse, GistUpdatePayload, WorkspaceData, ProfileSettings } from './types'
-import { DEFAULT_PROFILE_SETTINGS } from './types'
-import { generateProfileSettingsFilename } from '@/shared/utils/urlParser'
+import type {
+  GistResponse,
+  GistUpdatePayload,
+  WorkspaceData,
+  ProfileSettings,
+} from './types';
+import { DEFAULT_PROFILE_SETTINGS } from './types';
+import { generateProfileSettingsFilename } from '@/shared/utils/urlParser';
 
-const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_API_BASE = 'https://api.github.com';
 
 /**
  * Error class for GitHub API errors
  */
 export class GitHubApiError extends Error {
-  status: number
-  response?: unknown
+  status: number;
+  response?: unknown;
 
   constructor(message: string, status: number, response?: unknown) {
-    super(message)
-    this.name = 'GitHubApiError'
-    this.status = status
-    this.response = response
+    super(message);
+    this.name = 'GitHubApiError';
+    this.status = status;
+    this.response = response;
   }
 }
 
@@ -28,7 +33,7 @@ function createHeaders(pat: string): HeadersInit {
     Authorization: `Bearer ${pat}`,
     'X-GitHub-Api-Version': '2022-11-28',
     'Content-Type': 'application/json',
-  }
+  };
 }
 
 /**
@@ -36,33 +41,39 @@ function createHeaders(pat: string): HeadersInit {
  */
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let errorMessage = `GitHub API error: ${response.status}`
-    
+    let errorMessage = `GitHub API error: ${response.status}`;
+
     try {
-      const errorData = await response.json()
-      errorMessage = errorData.message || errorMessage
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorMessage;
     } catch {
       // Ignore JSON parsing errors
     }
 
-    throw new GitHubApiError(errorMessage, response.status)
+    throw new GitHubApiError(errorMessage, response.status);
   }
 
-  return response.json()
+  return response.json();
 }
 
 /**
  * Fetch a Gist by ID
  * Adds cache-busting to avoid stale data
  */
-export async function fetchGist(gistId: string, pat: string): Promise<GistResponse> {
-  const response = await fetch(`${GITHUB_API_BASE}/gists/${gistId}?cb=${Date.now()}`, {
-    method: 'GET',
-    headers: createHeaders(pat),
-    cache: 'no-store',
-  })
+export async function fetchGist(
+  gistId: string,
+  pat: string
+): Promise<GistResponse> {
+  const response = await fetch(
+    `${GITHUB_API_BASE}/gists/${gistId}?cb=${Date.now()}`,
+    {
+      method: 'GET',
+      headers: createHeaders(pat),
+      cache: 'no-store',
+    }
+  );
 
-  return handleResponse<GistResponse>(response)
+  return handleResponse<GistResponse>(response);
 }
 
 /**
@@ -78,15 +89,15 @@ export async function updateGistFile(
     files: {
       [filename]: { content },
     },
-  }
+  };
 
   const response = await fetch(`${GITHUB_API_BASE}/gists/${gistId}`, {
     method: 'PATCH',
     headers: createHeaders(pat),
     body: JSON.stringify(payload),
-  })
+  });
 
-  return handleResponse<GistResponse>(response)
+  return handleResponse<GistResponse>(response);
 }
 
 /**
@@ -99,7 +110,7 @@ export async function createGistFile(
   content: string,
   pat: string
 ): Promise<GistResponse> {
-  return updateGistFile(gistId, filename, content, pat)
+  return updateGistFile(gistId, filename, content, pat);
 }
 
 /**
@@ -114,15 +125,15 @@ export async function deleteGistFile(
     files: {
       [filename]: null,
     },
-  }
+  };
 
   const response = await fetch(`${GITHUB_API_BASE}/gists/${gistId}`, {
     method: 'PATCH',
     headers: createHeaders(pat),
     body: JSON.stringify(payload),
-  })
+  });
 
-  return handleResponse<GistResponse>(response)
+  return handleResponse<GistResponse>(response);
 }
 
 /**
@@ -135,18 +146,18 @@ export async function fetchGistFileContent(
   _pat: string
 ): Promise<string> {
   // Add cache-busting parameter to avoid stale data
-  const cacheBustedUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`
+  const cacheBustedUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`;
   const response = await fetch(cacheBustedUrl, {
     method: 'GET',
     // No auth headers - raw URLs are public and adding headers triggers CORS preflight
     cache: 'no-store',
-  })
+  });
 
   if (!response.ok) {
-    throw new GitHubApiError('Failed to fetch file content', response.status)
+    throw new GitHubApiError('Failed to fetch file content', response.status);
   }
 
-  return response.text()
+  return response.text();
 }
 
 /**
@@ -154,21 +165,21 @@ export async function fetchGistFileContent(
  */
 export function parseWorkspaceData(content: string): WorkspaceData | null {
   try {
-    const data = JSON.parse(content)
-    
+    const data = JSON.parse(content);
+
     // Validate required fields
     if (!data.id || !data.name || !data.profile || !Array.isArray(data.links)) {
-      return null
+      return null;
     }
 
     // Ensure updatedAt exists (backwards compatibility)
     if (!data.updatedAt) {
-      data.updatedAt = data.createdAt || 0
+      data.updatedAt = data.createdAt || 0;
     }
 
-    return data as WorkspaceData
+    return data as WorkspaceData;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -176,7 +187,7 @@ export function parseWorkspaceData(content: string): WorkspaceData | null {
  * Serialize workspace data to JSON string
  */
 export function serializeWorkspaceData(data: WorkspaceData): string {
-  return JSON.stringify(data, null, 2)
+  return JSON.stringify(data, null, 2);
 }
 
 /**
@@ -188,23 +199,26 @@ export async function validatePat(pat: string): Promise<boolean> {
     const response = await fetch(`${GITHUB_API_BASE}/user`, {
       method: 'GET',
       headers: createHeaders(pat),
-    })
+    });
 
-    return response.ok
+    return response.ok;
   } catch {
-    return false
+    return false;
   }
 }
 
 /**
  * Validate a Gist exists and is accessible
  */
-export async function validateGist(gistId: string, pat: string): Promise<boolean> {
+export async function validateGist(
+  gistId: string,
+  pat: string
+): Promise<boolean> {
   try {
-    await fetchGist(gistId, pat)
-    return true
+    await fetchGist(gistId, pat);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -224,10 +238,10 @@ export async function createNewGist(pat: string): Promise<string> {
         },
       },
     }),
-  })
+  });
 
-  const gist = await handleResponse<GistResponse>(response)
-  
+  const gist = await handleResponse<GistResponse>(response);
+
   // Update README with Gist ID and sync instructions
   const readmeContent = `# Kanso Tab Manager Data
 
@@ -254,40 +268,44 @@ Your workspaces and links will sync automatically.
 
 ---
 *Managed by Kanso Tab Manager*
-`
+`;
 
-  await updateGistFile(gist.id, 'README.md', readmeContent, pat)
-  
-  return gist.id
+  await updateGistFile(gist.id, 'README.md', readmeContent, pat);
+
+  return gist.id;
 }
 
 /**
  * Fetch profile settings from Gist
  */
-export async function fetchProfileSettings(gistId: string, profileName: string, pat: string): Promise<ProfileSettings> {
+export async function fetchProfileSettings(
+  gistId: string,
+  profileName: string,
+  pat: string
+): Promise<ProfileSettings> {
   try {
-    const filename = generateProfileSettingsFilename(profileName)
-    const gist = await fetchGist(gistId, pat)
-    const settingsFile = gist.files[filename]
-    
+    const filename = generateProfileSettingsFilename(profileName);
+    const gist = await fetchGist(gistId, pat);
+    const settingsFile = gist.files[filename];
+
     if (!settingsFile) {
-      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS };
     }
-    
+
     // Use inline content if available (more reliable than raw_url which can be cached)
-    let content: string
+    let content: string;
     if (settingsFile.content && !settingsFile.truncated) {
-      content = settingsFile.content
+      content = settingsFile.content;
     } else if (settingsFile.raw_url) {
-      content = await fetchGistFileContent(settingsFile.raw_url, pat)
+      content = await fetchGistFileContent(settingsFile.raw_url, pat);
     } else {
-      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS };
     }
-    
-    return JSON.parse(content) as ProfileSettings
+
+    return JSON.parse(content) as ProfileSettings;
   } catch {
     // If settings file doesn't exist, return defaults
-    return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+    return { name: profileName, ...DEFAULT_PROFILE_SETTINGS };
   }
 }
 
@@ -295,11 +313,16 @@ export async function fetchProfileSettings(gistId: string, profileName: string, 
  * Save profile settings to Gist
  */
 export async function saveProfileSettings(
-  gistId: string, 
-  profileName: string, 
-  settings: ProfileSettings, 
+  gistId: string,
+  profileName: string,
+  settings: ProfileSettings,
   pat: string
 ): Promise<void> {
-  const filename = generateProfileSettingsFilename(profileName)
-  await updateGistFile(gistId, filename, JSON.stringify(settings, null, 2), pat)
+  const filename = generateProfileSettingsFilename(profileName);
+  await updateGistFile(
+    gistId,
+    filename,
+    JSON.stringify(settings, null, 2),
+    pat
+  );
 }

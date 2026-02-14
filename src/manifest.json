@@ -12,5 +12,8 @@
     "newtab": "index.html"
   },
   "permissions": ["storage"],
-  "host_permissions": ["https://api.github.com/*", "https://gist.githubusercontent.com/*"]
+  "host_permissions": [
+    "https://api.github.com/*",
+    "https://gist.githubusercontent.com/*"
+  ]
 }

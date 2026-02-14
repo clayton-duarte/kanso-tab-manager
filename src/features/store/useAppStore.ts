@@ -1,17 +1,27 @@
-import { create } from 'zustand'
-import { nanoid } from 'nanoid'
-import type { AppStore, AccentColor } from './types'
-import type { LinkItem, Profile, WorkspaceData, WorkspaceMeta } from '../github/types'
-import { DEFAULT_PROFILE_SETTINGS } from '../github/types'
-import { debounce } from '@/shared/utils/debounce'
-import { generateWorkspaceFilename, parseWorkspaceFilename, parseProfileSettingsFilename, generateProfileSettingsFilename } from '@/shared/utils/urlParser'
+import { create } from 'zustand';
+import { nanoid } from 'nanoid';
+import type { AppStore, AccentColor } from './types';
+import type {
+  LinkItem,
+  Profile,
+  WorkspaceData,
+  WorkspaceMeta,
+} from '../github/types';
+import { DEFAULT_PROFILE_SETTINGS } from '../github/types';
+import { debounce } from '@/shared/utils/debounce';
+import {
+  generateWorkspaceFilename,
+  parseWorkspaceFilename,
+  parseProfileSettingsFilename,
+  generateProfileSettingsFilename,
+} from '@/shared/utils/urlParser';
 import {
   loadSession,
   saveSession,
   loadPortable,
   savePortable,
   clearAll,
-} from './storage'
+} from './storage';
 import {
   fetchGist,
   fetchGistFileContent,
@@ -24,19 +34,19 @@ import {
   createNewGist,
   fetchProfileSettings,
   saveProfileSettings,
-} from '../github/api'
+} from '../github/api';
 
 // Debounced save function (initialized lazily)
-let debouncedSave: ReturnType<typeof debounce> | null = null
+let debouncedSave: ReturnType<typeof debounce> | null = null;
 
 /**
  * Kanso App Store
- * 
+ *
  * Architecture:
  * - Session State: device-specific (PAT, active selections)
  * - Portable State: synced to Gist (profiles, workspaces, links)
  * - UI State: transient (loading, errors)
- * 
+ *
  * Offline-First:
  * 1. Init loads cached data immediately (no network)
  * 2. Background sync fetches latest from Gist (non-blocking)
@@ -64,7 +74,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
   // UI STATE (transient)
   // ============================================================================
-  isInitializing: true,  // Start true to avoid welcome flash
+  isInitializing: true, // Start true to avoid welcome flash
   isAuthenticated: false,
   syncError: null,
   isSyncing: false,
@@ -84,26 +94,34 @@ export const useAppStore = create<AppStore>((set, get) => ({
   init: async () => {
     try {
       // 1. Load session state
-      const session = await loadSession()
-      const { pat, gistId, activeProfileId, activeWorkspaceId, profileWorkspaceMap } = session
+      const session = await loadSession();
+      const {
+        pat,
+        gistId,
+        activeProfileId,
+        activeWorkspaceId,
+        profileWorkspaceMap,
+      } = session;
 
       // No credentials = not authenticated
       if (!pat || !gistId) {
         set({
           isInitializing: false,
           isAuthenticated: false,
-        })
-        return
+        });
+        return;
       }
 
       // 2. Load cached portable data (instant, no network)
-      const portable = await loadPortable()
-      
+      const portable = await loadPortable();
+
       // Determine active profile/workspace from session or defaults
-      const activeProfile = portable.profiles.find(p => p.id === activeProfileId) 
-        || portable.profiles[0]
-      const activeWorkspace = portable.workspaces.find(w => w.id === activeWorkspaceId)
-        || portable.workspaces.find(w => w.profile === activeProfile?.name)
+      const activeProfile =
+        portable.profiles.find((p) => p.id === activeProfileId) ||
+        portable.profiles[0];
+      const activeWorkspace =
+        portable.workspaces.find((w) => w.id === activeWorkspaceId) ||
+        portable.workspaces.find((w) => w.profile === activeProfile?.name);
 
       // Set state immediately from cache
       set({
@@ -122,15 +140,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         isAuthenticated: true,
         isInitializing: false,
         accentColor: activeProfile?.accentColor || 'gray',
-      })
+      });
 
       // 3. Background sync (non-blocking)
       // Don't await - let UI show cached data immediately
-      get().sync()
-
+      get().sync();
     } catch {
       // Even on error, stop initializing so UI can render
-      set({ isInitializing: false })
+      set({ isInitializing: false });
     }
   },
 
@@ -143,44 +160,43 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * This is the only operation that REQUIRES network connection
    */
   setCredentials: async (pat: string, gistId: string) => {
-    set({ isSyncing: true, syncError: null })
+    set({ isSyncing: true, syncError: null });
 
     try {
       // Validate PAT is valid (requires network)
-      const isPatValid = await validatePat(pat)
+      const isPatValid = await validatePat(pat);
       if (!isPatValid) {
-        set({ 
-          syncError: 'Invalid GitHub Personal Access Token', 
-          isSyncing: false 
-        })
-        return
+        set({
+          syncError: 'Invalid GitHub Personal Access Token',
+          isSyncing: false,
+        });
+        return;
       }
 
       // Validate Gist exists (requires network)
-      const isGistValid = await validateGist(gistId, pat)
+      const isGistValid = await validateGist(gistId, pat);
       if (!isGistValid) {
-        set({ syncError: 'Gist not found or inaccessible', isSyncing: false })
-        return
+        set({ syncError: 'Gist not found or inaccessible', isSyncing: false });
+        return;
       }
 
       // Save session
-      await saveSession({ pat, gistId })
+      await saveSession({ pat, gistId });
 
       set({
         pat,
         gistId,
         isAuthenticated: true,
         isSyncing: false,
-      })
+      });
 
       // Fetch data from Gist
-      await get().sync()
-
+      await get().sync();
     } catch (error) {
       set({
         syncError: error instanceof Error ? error.message : 'Failed to connect',
         isSyncing: false,
-      })
+      });
     }
   },
 
@@ -189,21 +205,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * Requires network connection
    */
   setupWithNewGist: async (pat: string) => {
-    set({ isSyncing: true, syncError: null })
+    set({ isSyncing: true, syncError: null });
 
     try {
       // Validate PAT is valid
-      const isPatValid = await validatePat(pat)
+      const isPatValid = await validatePat(pat);
       if (!isPatValid) {
-        set({ 
-          syncError: 'Invalid GitHub Personal Access Token', 
-          isSyncing: false 
-        })
-        return
+        set({
+          syncError: 'Invalid GitHub Personal Access Token',
+          isSyncing: false,
+        });
+        return;
       }
 
       // Create new Gist (this validates write permissions)
-      const gistId = await createNewGist(pat)
+      const gistId = await createNewGist(pat);
 
       // Create default profile
       const defaultProfile: Profile = {
@@ -211,17 +227,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
         name: 'Personal',
         createdAt: Date.now(),
         accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
-      }
+      };
 
       // Create default workspace
-      const workspaceFilename = generateWorkspaceFilename('Personal', 'Default')
-      const workspaceId = `ws-${workspaceFilename}`
+      const workspaceFilename = generateWorkspaceFilename(
+        'Personal',
+        'Default'
+      );
+      const workspaceId = `ws-${workspaceFilename}`;
       const defaultWorkspace: WorkspaceMeta = {
         id: workspaceId,
         name: 'Default',
         profile: 'Personal',
         filename: workspaceFilename,
-      }
+      };
       const defaultWorkspaceData: WorkspaceData = {
         id: workspaceId,
         name: 'Default',
@@ -229,16 +248,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
         createdAt: Date.now(),
         updatedAt: Date.now(),
         links: [],
-      }
+      };
 
       // Save to Gist
-      await updateGistFile(gistId, workspaceFilename, serializeWorkspaceData(defaultWorkspaceData), pat)
-      await saveProfileSettings(gistId, 'Personal', {
-        name: 'Personal',
-        accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
-        createdAt: defaultProfile.createdAt,
-        workspaceOrder: [workspaceId],
-      }, pat)
+      await updateGistFile(
+        gistId,
+        workspaceFilename,
+        serializeWorkspaceData(defaultWorkspaceData),
+        pat
+      );
+      await saveProfileSettings(
+        gistId,
+        'Personal',
+        {
+          name: 'Personal',
+          accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
+          createdAt: defaultProfile.createdAt,
+          workspaceOrder: [workspaceId],
+        },
+        pat
+      );
 
       // Save session
       await saveSession({
@@ -247,14 +276,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeProfileId: defaultProfile.id,
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: { [defaultProfile.id]: workspaceId },
-      })
+      });
 
       // Save portable cache
       await savePortable({
         profiles: [defaultProfile],
         workspaces: [defaultWorkspace],
         workspaceDataCache: { [workspaceId]: defaultWorkspaceData },
-      })
+      });
 
       set({
         // Session
@@ -272,18 +301,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
         isAuthenticated: true,
         isSyncing: false,
         accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
-      })
-
+      });
     } catch (error) {
       // Handle permission errors with a clearer message
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create Gist'
-      const userMessage = errorMessage.includes('403') || errorMessage.includes('401')
-        ? 'Missing Gist permissions. Ensure your token has read/write access to Gists.'
-        : errorMessage
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create Gist';
+      const userMessage =
+        errorMessage.includes('403') || errorMessage.includes('401')
+          ? 'Missing Gist permissions. Ensure your token has read/write access to Gists.'
+          : errorMessage;
       set({
         syncError: userMessage,
         isSyncing: false,
-      })
+      });
     }
   },
 
@@ -291,8 +321,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * Clear all local data and log out
    */
   clearCredentials: () => {
-    clearAll()
-    
+    clearAll();
+
     set({
       // Session
       pat: null,
@@ -308,15 +338,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // UI
       isAuthenticated: false,
       syncError: null,
-    })
+    });
   },
 
   /**
    * Delete Gist from GitHub and log out
    */
   deleteGistAndLogout: async () => {
-    const { pat, gistId } = get()
-    
+    const { pat, gistId } = get();
+
     if (pat && gistId) {
       try {
         await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -326,13 +356,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
             Authorization: `Bearer ${pat}`,
             'X-GitHub-Api-Version': '2022-11-28',
           },
-        })
+        });
       } catch {
         // Continue with logout even if delete fails
       }
     }
 
-    get().clearCredentials()
+    get().clearCredentials();
   },
 
   // ============================================================================
@@ -346,75 +376,76 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * - Never blocks UI - just warns on error
    */
   sync: async () => {
-    const { pat, gistId, activeProfileId, activeWorkspaceId } = get()
-    
-    if (!pat || !gistId) return
+    const { pat, gistId, activeProfileId, activeWorkspaceId } = get();
 
-    set({ isSyncing: true })
+    if (!pat || !gistId) return;
+
+    set({ isSyncing: true });
 
     try {
       // Validate PAT is still valid
-      const isPatValid = await validatePat(pat)
+      const isPatValid = await validatePat(pat);
       if (!isPatValid) {
-        set({ 
-          syncError: 'GitHub token expired or invalid', 
+        set({
+          syncError: 'GitHub token expired or invalid',
           isSyncing: false,
           isAuthenticated: false,
-        })
-        return
+        });
+        return;
       }
 
       // Fetch Gist
-      const gist = await fetchGist(gistId, pat)
+      const gist = await fetchGist(gistId, pat);
 
       // Parse profiles and workspaces from filenames
-      const profileSet = new Set<string>()
-      const workspacesList: WorkspaceMeta[] = []
+      const profileSet = new Set<string>();
+      const workspacesList: WorkspaceMeta[] = [];
 
       for (const [filename] of Object.entries(gist.files)) {
-        if (!filename.endsWith('.json')) continue
+        if (!filename.endsWith('.json')) continue;
 
         // Check if it's a profile settings file
-        const profileFromSettings = parseProfileSettingsFilename(filename)
+        const profileFromSettings = parseProfileSettingsFilename(filename);
         if (profileFromSettings) {
-          profileSet.add(profileFromSettings)
-          continue
+          profileSet.add(profileFromSettings);
+          continue;
         }
 
         // Check if it's a workspace file
-        const parsed = parseWorkspaceFilename(filename)
-        if (!parsed) continue
+        const parsed = parseWorkspaceFilename(filename);
+        if (!parsed) continue;
 
-        profileSet.add(parsed.profile)
+        profileSet.add(parsed.profile);
         workspacesList.push({
           id: `ws-${filename}`,
           name: parsed.workspace,
           profile: parsed.profile,
           filename,
-        })
+        });
       }
 
       // Fetch profile settings to get accent colors
       const profileSettingsResults = await Promise.all(
         Array.from(profileSet).map(async (name) => {
-          const settings = await fetchProfileSettings(gistId, name, pat)
-          return { name, settings }
+          const settings = await fetchProfileSettings(gistId, name, pat);
+          return { name, settings };
         })
-      )
+      );
       const profileSettingsMap = new Map(
         profileSettingsResults.map(({ name, settings }) => [name, settings])
-      )
+      );
 
       // Create profile objects
       const profiles: Profile[] = Array.from(profileSet).map((name) => {
-        const settings = profileSettingsMap.get(name)
+        const settings = profileSettingsMap.get(name);
         return {
           id: `profile-${name}`,
           name,
           createdAt: settings?.createdAt || Date.now(),
-          accentColor: settings?.accentColor || DEFAULT_PROFILE_SETTINGS.accentColor,
-        }
-      })
+          accentColor:
+            settings?.accentColor || DEFAULT_PROFILE_SETTINGS.accentColor,
+        };
+      });
 
       // Ensure at least one profile exists
       if (profiles.length === 0) {
@@ -423,96 +454,100 @@ export const useAppStore = create<AppStore>((set, get) => ({
           name: 'Personal',
           createdAt: Date.now(),
           accentColor: DEFAULT_PROFILE_SETTINGS.accentColor,
-        })
+        });
       }
 
       // Sort workspaces by profile's workspaceOrder
-      const sortedWorkspaces: WorkspaceMeta[] = []
+      const sortedWorkspaces: WorkspaceMeta[] = [];
       for (const profile of profiles) {
-        const settings = profileSettingsMap.get(profile.name)
-        const order = settings?.workspaceOrder || []
-        const profileWs = workspacesList.filter(w => w.profile === profile.name)
-        
+        const settings = profileSettingsMap.get(profile.name);
+        const order = settings?.workspaceOrder || [];
+        const profileWs = workspacesList.filter(
+          (w) => w.profile === profile.name
+        );
+
         // Sort by order array, then alphabetically for any not in order
         profileWs.sort((a, b) => {
-          const aIndex = order.indexOf(a.id)
-          const bIndex = order.indexOf(b.id)
+          const aIndex = order.indexOf(a.id);
+          const bIndex = order.indexOf(b.id);
           // If both in order, sort by order
-          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
           // If only a in order, a comes first
-          if (aIndex !== -1) return -1
+          if (aIndex !== -1) return -1;
           // If only b in order, b comes first
-          if (bIndex !== -1) return 1
+          if (bIndex !== -1) return 1;
           // Neither in order, sort alphabetically
-          return a.name.localeCompare(b.name)
-        })
-        sortedWorkspaces.push(...profileWs)
+          return a.name.localeCompare(b.name);
+        });
+        sortedWorkspaces.push(...profileWs);
       }
 
       // Find active workspace
-      let activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0]
-      let activeWorkspace = sortedWorkspaces.find(w => w.id === activeWorkspaceId)
-        || sortedWorkspaces.find(w => w.profile === activeProfile.name)
+      let activeProfile =
+        profiles.find((p) => p.id === activeProfileId) || profiles[0];
+      let activeWorkspace =
+        sortedWorkspaces.find((w) => w.id === activeWorkspaceId) ||
+        sortedWorkspaces.find((w) => w.profile === activeProfile.name);
 
       // Get current local cache for timestamp comparison
-      const localCache = get().workspaceDataCache
+      const localCache = get().workspaceDataCache;
 
       // Load all workspace data and resolve conflicts using updatedAt timestamps
-      const mergedCache: Record<string, WorkspaceData> = {}
-      const workspacesToPush: { filename: string; data: WorkspaceData }[] = []
+      const mergedCache: Record<string, WorkspaceData> = {};
+      const workspacesToPush: { filename: string; data: WorkspaceData }[] = [];
 
       await Promise.all(
         sortedWorkspaces.map(async (ws) => {
-          const file = gist.files[ws.filename]
-          const localData = localCache[ws.id]
-          
+          const file = gist.files[ws.filename];
+          const localData = localCache[ws.id];
+
           if (!file) {
             // File doesn't exist on Gist - use local if available
             if (localData) {
-              mergedCache[ws.id] = localData
-              workspacesToPush.push({ filename: ws.filename, data: localData })
+              mergedCache[ws.id] = localData;
+              workspacesToPush.push({ filename: ws.filename, data: localData });
             }
-            return
+            return;
           }
-          
-          let content = file.content
+
+          let content = file.content;
           if (!content || file.truncated) {
-            content = await fetchGistFileContent(file.raw_url, pat)
+            content = await fetchGistFileContent(file.raw_url, pat);
           }
-          const remoteData = parseWorkspaceData(content)
-          
+          const remoteData = parseWorkspaceData(content);
+
           if (!remoteData) {
             // Invalid remote data - use local if available
             if (localData) {
-              mergedCache[ws.id] = localData
+              mergedCache[ws.id] = localData;
             }
-            return
+            return;
           }
-          
-          remoteData.id = ws.id
-          
+
+          remoteData.id = ws.id;
+
           // Compare timestamps to resolve conflicts
-          const localUpdatedAt = localData?.updatedAt || 0
-          const remoteUpdatedAt = remoteData.updatedAt || 0
+          const localUpdatedAt = localData?.updatedAt || 0;
+          const remoteUpdatedAt = remoteData.updatedAt || 0;
 
           if (localData && localUpdatedAt > remoteUpdatedAt) {
             // Local is newer - use local and push to Gist
-            mergedCache[ws.id] = localData
-            workspacesToPush.push({ filename: ws.filename, data: localData })
+            mergedCache[ws.id] = localData;
+            workspacesToPush.push({ filename: ws.filename, data: localData });
             // Update workspace name from local data
             if (localData.name && localData.name !== ws.name) {
-              ws.name = localData.name
+              ws.name = localData.name;
             }
           } else {
             // Remote is newer (or equal) - use remote
-            mergedCache[ws.id] = remoteData
+            mergedCache[ws.id] = remoteData;
             // Update workspace name from remote data
             if (remoteData.name && remoteData.name !== ws.name) {
-              ws.name = remoteData.name
+              ws.name = remoteData.name;
             }
           }
         })
-      )
+      );
 
       // Push local changes to Gist (non-blocking)
       if (workspacesToPush.length > 0) {
@@ -522,7 +557,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           )
         ).catch(() => {
           // Silently ignore push failures - will retry on next sync
-        })
+        });
       }
 
       // Save to portable cache
@@ -530,13 +565,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
         profiles,
         workspaces: sortedWorkspaces,
         workspaceDataCache: mergedCache,
-      })
+      });
 
       // Update session with current selections
       await saveSession({
         activeProfileId: activeProfile.id,
         activeWorkspaceId: activeWorkspace?.id || null,
-      })
+      });
 
       set({
         profiles,
@@ -548,14 +583,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
         lastSyncedAt: Date.now(),
         isSyncing: false,
         syncError: null,
-      })
-
+      });
     } catch (error) {
       // Non-blocking: just warn, don't break the experience
       set({
         syncError: error instanceof Error ? error.message : 'Sync failed',
         isSyncing: false,
-      })
+      });
     }
   },
 
@@ -568,36 +602,39 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * Works offline - uses cached data
    */
   switchProfile: (profileId: string) => {
-    const { profiles, workspaces, profileWorkspaceMap, workspaceDataCache } = get()
-    const profile = profiles.find(p => p.id === profileId)
-    
-    if (!profile) return
+    const { profiles, workspaces, profileWorkspaceMap, workspaceDataCache } =
+      get();
+    const profile = profiles.find((p) => p.id === profileId);
+
+    if (!profile) return;
 
     // Find last workspace for this profile, or first workspace
-    const lastWorkspaceId = profileWorkspaceMap[profileId]
-    let targetWorkspace = lastWorkspaceId 
-      ? workspaces.find(w => w.id === lastWorkspaceId && w.profile === profile.name)
-      : null
-    
+    const lastWorkspaceId = profileWorkspaceMap[profileId];
+    let targetWorkspace = lastWorkspaceId
+      ? workspaces.find(
+          (w) => w.id === lastWorkspaceId && w.profile === profile.name
+        )
+      : null;
+
     if (!targetWorkspace) {
-      targetWorkspace = workspaces.find(w => w.profile === profile.name)
+      targetWorkspace = workspaces.find((w) => w.profile === profile.name);
     }
 
     set({
       activeProfileId: profileId,
       activeWorkspaceId: targetWorkspace?.id || null,
       accentColor: profile.accentColor || 'gray',
-    })
+    });
 
     // Save session (don't await)
     saveSession({
       activeProfileId: profileId,
       activeWorkspaceId: targetWorkspace?.id || null,
-    })
+    });
 
     // Load workspace data if not cached
     if (targetWorkspace && !workspaceDataCache[targetWorkspace.id]) {
-      get().switchWorkspace(targetWorkspace.id)
+      get().switchWorkspace(targetWorkspace.id);
     }
   },
 
@@ -606,15 +643,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * Loads from cache first, then fetches if needed
    */
   switchWorkspace: async (workspaceId: string) => {
-    const { workspaces, workspaceDataCache, pat, gistId, activeProfileId, profileWorkspaceMap } = get()
-    const workspace = workspaces.find(w => w.id === workspaceId)
-    
-    if (!workspace) return
+    const {
+      workspaces,
+      workspaceDataCache,
+      pat,
+      gistId,
+      activeProfileId,
+      profileWorkspaceMap,
+    } = get();
+    const workspace = workspaces.find((w) => w.id === workspaceId);
+
+    if (!workspace) return;
 
     // Update profile workspace map
-    const newMap = { ...profileWorkspaceMap }
+    const newMap = { ...profileWorkspaceMap };
     if (activeProfileId) {
-      newMap[activeProfileId] = workspaceId
+      newMap[activeProfileId] = workspaceId;
     }
 
     // Check cache first (instant, offline)
@@ -622,9 +666,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
-      })
-      saveSession({ activeWorkspaceId: workspaceId, profileWorkspaceMap: newMap })
-      return
+      });
+      saveSession({
+        activeWorkspaceId: workspaceId,
+        profileWorkspaceMap: newMap,
+      });
+      return;
     }
 
     // Not cached - need to fetch (requires network)
@@ -637,18 +684,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
         createdAt: Date.now(),
         updatedAt: Date.now(),
         links: [],
-      }
-      set(state => ({
+      };
+      set((state) => ({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
-        workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: emptyData },
-      }))
-      return
+        workspaceDataCache: {
+          ...state.workspaceDataCache,
+          [workspaceId]: emptyData,
+        },
+      }));
+      return;
     }
 
     try {
-      const gist = await fetchGist(gistId, pat)
-      const file = gist.files[workspace.filename]
+      const gist = await fetchGist(gistId, pat);
+      const file = gist.files[workspace.filename];
 
       if (!file) {
         // File doesn't exist - create empty workspace
@@ -659,50 +709,62 @@ export const useAppStore = create<AppStore>((set, get) => ({
           createdAt: Date.now(),
           updatedAt: Date.now(),
           links: [],
-        }
-        set(state => ({
+        };
+        set((state) => ({
           activeWorkspaceId: workspaceId,
           profileWorkspaceMap: newMap,
-          workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: emptyData },
-        }))
-        return
+          workspaceDataCache: {
+            ...state.workspaceDataCache,
+            [workspaceId]: emptyData,
+          },
+        }));
+        return;
       }
 
-      let content = file.content
+      let content = file.content;
       if (!content || file.truncated) {
-        content = await fetchGistFileContent(file.raw_url, pat)
+        content = await fetchGistFileContent(file.raw_url, pat);
       }
 
-      const workspaceData = parseWorkspaceData(content)
+      const workspaceData = parseWorkspaceData(content);
       if (!workspaceData) {
-        throw new Error('Invalid workspace data')
+        throw new Error('Invalid workspace data');
       }
-      workspaceData.id = workspaceId
+      workspaceData.id = workspaceId;
 
       // Update cache and workspace name (may differ from filename)
-      set(state => ({
+      set((state) => ({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
-        workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: workspaceData },
-        workspaces: workspaceData.name && workspaceData.name !== workspace.name
-          ? state.workspaces.map(w => w.id === workspaceId ? { ...w, name: workspaceData.name } : w)
-          : state.workspaces,
-      }))
+        workspaceDataCache: {
+          ...state.workspaceDataCache,
+          [workspaceId]: workspaceData,
+        },
+        workspaces:
+          workspaceData.name && workspaceData.name !== workspace.name
+            ? state.workspaces.map((w) =>
+                w.id === workspaceId ? { ...w, name: workspaceData.name } : w
+              )
+            : state.workspaces,
+      }));
 
       // Save to portable cache
-      const { profiles, workspaces, workspaceDataCache: updatedCache } = get()
+      const { profiles, workspaces, workspaceDataCache: updatedCache } = get();
       await savePortable({
         profiles,
         workspaces,
         workspaceDataCache: { ...updatedCache, [workspaceId]: workspaceData },
-      })
+      });
 
-      saveSession({ activeWorkspaceId: workspaceId, profileWorkspaceMap: newMap })
-
+      saveSession({
+        activeWorkspaceId: workspaceId,
+        profileWorkspaceMap: newMap,
+      });
     } catch (error) {
       set({
-        syncError: error instanceof Error ? error.message : 'Failed to load workspace',
-      })
+        syncError:
+          error instanceof Error ? error.message : 'Failed to load workspace',
+      });
     }
   },
 
@@ -711,24 +773,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   createProfile: async (name: string) => {
-    const { pat, gistId, accentColor } = get()
-    
+    const { pat, gistId, accentColor } = get();
+
     const newProfile: Profile = {
       id: `profile-${name}`,
       name,
       createdAt: Date.now(),
       accentColor: accentColor,
-    }
+    };
 
     // Create default workspace
-    const workspaceFilename = generateWorkspaceFilename(name, 'Default')
-    const workspaceId = `ws-${workspaceFilename}`
+    const workspaceFilename = generateWorkspaceFilename(name, 'Default');
+    const workspaceId = `ws-${workspaceFilename}`;
     const newWorkspace: WorkspaceMeta = {
       id: workspaceId,
       name: 'Default',
       profile: name,
       filename: workspaceFilename,
-    }
+    };
     const newWorkspaceData: WorkspaceData = {
       id: workspaceId,
       name: 'Default',
@@ -736,64 +798,95 @@ export const useAppStore = create<AppStore>((set, get) => ({
       createdAt: Date.now(),
       updatedAt: Date.now(),
       links: [],
-    }
+    };
 
     // Optimistic update
-    set(state => ({
+    set((state) => ({
       profiles: [...state.profiles, newProfile],
       workspaces: [...state.workspaces, newWorkspace],
-      workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: newWorkspaceData },
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [workspaceId]: newWorkspaceData,
+      },
       activeProfileId: newProfile.id,
       activeWorkspaceId: workspaceId,
-      profileWorkspaceMap: { ...state.profileWorkspaceMap, [newProfile.id]: workspaceId },
-    }))
+      profileWorkspaceMap: {
+        ...state.profileWorkspaceMap,
+        [newProfile.id]: workspaceId,
+      },
+    }));
 
     // Save session
     saveSession({
       activeProfileId: newProfile.id,
       activeWorkspaceId: workspaceId,
-      profileWorkspaceMap: { ...get().profileWorkspaceMap, [newProfile.id]: workspaceId },
-    })
+      profileWorkspaceMap: {
+        ...get().profileWorkspaceMap,
+        [newProfile.id]: workspaceId,
+      },
+    });
 
     // Sync to Gist (non-blocking)
     if (pat && gistId) {
       try {
-        await updateGistFile(gistId, workspaceFilename, serializeWorkspaceData(newWorkspaceData), pat)
-        await saveProfileSettings(gistId, name, {
+        await updateGistFile(
+          gistId,
+          workspaceFilename,
+          serializeWorkspaceData(newWorkspaceData),
+          pat
+        );
+        await saveProfileSettings(
+          gistId,
           name,
-          accentColor,
-          createdAt: newProfile.createdAt,
-          workspaceOrder: [workspaceId],
-        }, pat)
+          {
+            name,
+            accentColor,
+            createdAt: newProfile.createdAt,
+            workspaceOrder: [workspaceId],
+          },
+          pat
+        );
       } catch (error) {
-        set({ syncError: 'Failed to sync new profile' })
+        set({ syncError: 'Failed to sync new profile' });
         console.error(error instanceof Error ? error.message : error);
       }
     }
 
     // Update portable cache
-    const { profiles, workspaces, workspaceDataCache } = get()
-    savePortable({ profiles, workspaces, workspaceDataCache })
+    const { profiles, workspaces, workspaceDataCache } = get();
+    savePortable({ profiles, workspaces, workspaceDataCache });
   },
 
   deleteProfile: async (profileId: string) => {
-    const { profiles, workspaces, activeProfileId, pat, gistId, workspaceDataCache } = get()
-    const profile = profiles.find(p => p.id === profileId)
-    
-    if (!profile) return
+    const {
+      profiles,
+      workspaces,
+      activeProfileId,
+      pat,
+      gistId,
+      workspaceDataCache,
+    } = get();
+    const profile = profiles.find((p) => p.id === profileId);
 
-    const workspacesToDelete = workspaces.filter(w => w.profile === profile.name)
-    const remainingWorkspaces = workspaces.filter(w => w.profile !== profile.name)
-    const remainingProfiles = profiles.filter(p => p.id !== profileId)
-    
+    if (!profile) return;
+
+    const workspacesToDelete = workspaces.filter(
+      (w) => w.profile === profile.name
+    );
+    const remainingWorkspaces = workspaces.filter(
+      (w) => w.profile !== profile.name
+    );
+    const remainingProfiles = profiles.filter((p) => p.id !== profileId);
+
     // Clean up workspace cache
-    const newCache = { ...workspaceDataCache }
-    workspacesToDelete.forEach(w => delete newCache[w.id])
+    const newCache = { ...workspaceDataCache };
+    workspacesToDelete.forEach((w) => delete newCache[w.id]);
 
     // Select new active profile
-    const newActiveProfile = activeProfileId === profileId
-      ? remainingProfiles[0]
-      : profiles.find(p => p.id === activeProfileId)
+    const newActiveProfile =
+      activeProfileId === profileId
+        ? remainingProfiles[0]
+        : profiles.find((p) => p.id === activeProfileId);
 
     // Optimistic update
     set({
@@ -801,27 +894,39 @@ export const useAppStore = create<AppStore>((set, get) => ({
       workspaces: remainingWorkspaces,
       workspaceDataCache: newCache,
       activeProfileId: newActiveProfile?.id || null,
-    })
+    });
 
     // Switch to new profile
     if (newActiveProfile && newActiveProfile.id !== activeProfileId) {
-      get().switchProfile(newActiveProfile.id)
+      get().switchProfile(newActiveProfile.id);
     }
 
     // Sync deletions to Gist (non-blocking)
     if (pat && gistId) {
       for (const workspace of workspacesToDelete) {
         try {
-          await deleteGistFile(gistId, workspace.filename, pat)
-        } catch { /* continue */ }
+          await deleteGistFile(gistId, workspace.filename, pat);
+        } catch {
+          /* continue */
+        }
       }
       try {
-        await deleteGistFile(gistId, generateProfileSettingsFilename(profile.name), pat)
-      } catch { /* continue */ }
+        await deleteGistFile(
+          gistId,
+          generateProfileSettingsFilename(profile.name),
+          pat
+        );
+      } catch {
+        /* continue */
+      }
     }
 
     // Update portable cache
-    savePortable({ profiles: remainingProfiles, workspaces: remainingWorkspaces, workspaceDataCache: newCache })
+    savePortable({
+      profiles: remainingProfiles,
+      workspaces: remainingWorkspaces,
+      workspaceDataCache: newCache,
+    });
   },
 
   // ============================================================================
@@ -829,20 +934,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   createWorkspace: async (name: string) => {
-    const { profiles, activeProfileId, pat, gistId } = get()
-    const profile = profiles.find(p => p.id === activeProfileId)
-    
-    if (!profile) return
+    const { profiles, activeProfileId, pat, gistId } = get();
+    const profile = profiles.find((p) => p.id === activeProfileId);
 
-    const filename = generateWorkspaceFilename(profile.name, name)
-    const workspaceId = `ws-${filename}`
+    if (!profile) return;
+
+    const filename = generateWorkspaceFilename(profile.name, name);
+    const workspaceId = `ws-${filename}`;
 
     const newWorkspace: WorkspaceMeta = {
       id: workspaceId,
       name,
       profile: profile.name,
       filename,
-    }
+    };
     const newWorkspaceData: WorkspaceData = {
       id: workspaceId,
       name,
@@ -850,164 +955,233 @@ export const useAppStore = create<AppStore>((set, get) => ({
       createdAt: Date.now(),
       updatedAt: Date.now(),
       links: [],
-    }
+    };
 
     // Optimistic update
-    set(state => ({
+    set((state) => ({
       workspaces: [...state.workspaces, newWorkspace],
-      workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: newWorkspaceData },
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [workspaceId]: newWorkspaceData,
+      },
       activeWorkspaceId: workspaceId,
-      profileWorkspaceMap: { ...state.profileWorkspaceMap, [profile.id]: workspaceId },
-    }))
+      profileWorkspaceMap: {
+        ...state.profileWorkspaceMap,
+        [profile.id]: workspaceId,
+      },
+    }));
 
     saveSession({
       activeWorkspaceId: workspaceId,
-      profileWorkspaceMap: { ...get().profileWorkspaceMap, [profile.id]: workspaceId },
-    })
+      profileWorkspaceMap: {
+        ...get().profileWorkspaceMap,
+        [profile.id]: workspaceId,
+      },
+    });
 
     // Sync to Gist (non-blocking)
     if (pat && gistId) {
       try {
-        await updateGistFile(gistId, filename, serializeWorkspaceData(newWorkspaceData), pat)
-        
+        await updateGistFile(
+          gistId,
+          filename,
+          serializeWorkspaceData(newWorkspaceData),
+          pat
+        );
+
         // Add new workspace to order array
-        const profileWorkspaces = get().workspaces.filter(w => w.profile === profile.name)
-        const workspaceOrder = profileWorkspaces.map(w => w.id)
-        saveProfileSettings(gistId, profile.name, {
-          name: profile.name,
-          accentColor: profile.accentColor,
-          createdAt: profile.createdAt,
-          workspaceOrder,
-        }, pat).catch(() => {
+        const profileWorkspaces = get().workspaces.filter(
+          (w) => w.profile === profile.name
+        );
+        const workspaceOrder = profileWorkspaces.map((w) => w.id);
+        saveProfileSettings(
+          gistId,
+          profile.name,
+          {
+            name: profile.name,
+            accentColor: profile.accentColor,
+            createdAt: profile.createdAt,
+            workspaceOrder,
+          },
+          pat
+        ).catch(() => {
           // Silently ignore - order sync is not critical
-        })
+        });
       } catch {
-        set({ syncError: 'Failed to sync new workspace' })
+        set({ syncError: 'Failed to sync new workspace' });
       }
     }
 
     // Update portable cache
-    const { profiles: p, workspaces, workspaceDataCache } = get()
-    savePortable({ profiles: p, workspaces, workspaceDataCache })
+    const { profiles: p, workspaces, workspaceDataCache } = get();
+    savePortable({ profiles: p, workspaces, workspaceDataCache });
   },
 
   deleteWorkspace: async (workspaceId: string) => {
-    const { workspaces, activeWorkspaceId, activeProfileId, profiles, pat, gistId, workspaceDataCache } = get()
-    const workspace = workspaces.find(w => w.id === workspaceId)
-    
-    if (!workspace) return
+    const {
+      workspaces,
+      activeWorkspaceId,
+      activeProfileId,
+      profiles,
+      pat,
+      gistId,
+      workspaceDataCache,
+    } = get();
+    const workspace = workspaces.find((w) => w.id === workspaceId);
 
-    const profile = profiles.find(p => p.id === activeProfileId)
-    const remainingWorkspaces = workspaces.filter(w => w.id !== workspaceId)
-    const newActiveWorkspace = activeWorkspaceId === workspaceId
-      ? remainingWorkspaces.find(w => w.profile === profile?.name)
-      : workspaces.find(w => w.id === activeWorkspaceId)
+    if (!workspace) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    const remainingWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
+    const newActiveWorkspace =
+      activeWorkspaceId === workspaceId
+        ? remainingWorkspaces.find((w) => w.profile === profile?.name)
+        : workspaces.find((w) => w.id === activeWorkspaceId);
 
     // Clean up cache
-    const newCache = { ...workspaceDataCache }
-    delete newCache[workspaceId]
+    const newCache = { ...workspaceDataCache };
+    delete newCache[workspaceId];
 
     // Optimistic update
     set({
       workspaces: remainingWorkspaces,
       workspaceDataCache: newCache,
       activeWorkspaceId: newActiveWorkspace?.id || null,
-    })
+    });
 
     // Sync deletion to Gist (non-blocking)
     if (pat && gistId && profile) {
       try {
-        await deleteGistFile(gistId, workspace.filename, pat)
-        
+        await deleteGistFile(gistId, workspace.filename, pat);
+
         // Update workspace order (remove deleted workspace)
-        const profileWorkspaces = remainingWorkspaces.filter(w => w.profile === profile.name)
-        const workspaceOrder = profileWorkspaces.map(w => w.id)
-        saveProfileSettings(gistId, profile.name, {
-          name: profile.name,
-          accentColor: profile.accentColor,
-          createdAt: profile.createdAt,
-          workspaceOrder,
-        }, pat).catch(() => {
+        const profileWorkspaces = remainingWorkspaces.filter(
+          (w) => w.profile === profile.name
+        );
+        const workspaceOrder = profileWorkspaces.map((w) => w.id);
+        saveProfileSettings(
+          gistId,
+          profile.name,
+          {
+            name: profile.name,
+            accentColor: profile.accentColor,
+            createdAt: profile.createdAt,
+            workspaceOrder,
+          },
+          pat
+        ).catch(() => {
           // Silently ignore - order sync is not critical
-        })
-      } catch { /* continue */ }
+        });
+      } catch {
+        /* continue */
+      }
     }
 
     // Update portable cache
-    savePortable({ profiles, workspaces: remainingWorkspaces, workspaceDataCache: newCache })
+    savePortable({
+      profiles,
+      workspaces: remainingWorkspaces,
+      workspaceDataCache: newCache,
+    });
 
     // Load new active workspace if needed
     if (newActiveWorkspace && !newCache[newActiveWorkspace.id]) {
-      get().switchWorkspace(newActiveWorkspace.id)
+      get().switchWorkspace(newActiveWorkspace.id);
     }
   },
 
   renameWorkspace: async (workspaceId: string, newName: string) => {
-    const { workspaceDataCache, profiles, workspaces, pat, gistId } = get()
-    const workspace = workspaces.find(w => w.id === workspaceId)
-    
-    if (!workspace) return
+    const { workspaceDataCache, profiles, workspaces, pat, gistId } = get();
+    const workspace = workspaces.find((w) => w.id === workspaceId);
+
+    if (!workspace) return;
 
     // Optimistic update with updatedAt
-    const now = Date.now()
-    set(state => ({
-      workspaces: state.workspaces.map(w =>
+    const now = Date.now();
+    set((state) => ({
+      workspaces: state.workspaces.map((w) =>
         w.id === workspaceId ? { ...w, name: newName } : w
       ),
       workspaceDataCache: workspaceDataCache[workspaceId]
-        ? { ...state.workspaceDataCache, [workspaceId]: { ...workspaceDataCache[workspaceId], name: newName, updatedAt: now } }
+        ? {
+            ...state.workspaceDataCache,
+            [workspaceId]: {
+              ...workspaceDataCache[workspaceId],
+              name: newName,
+              updatedAt: now,
+            },
+          }
         : state.workspaceDataCache,
-    }))
+    }));
 
     // Save to portable cache immediately
-    const { workspaces: updatedWorkspaces, workspaceDataCache: updatedCache } = get()
-    savePortable({ profiles, workspaces: updatedWorkspaces, workspaceDataCache: updatedCache })
+    const { workspaces: updatedWorkspaces, workspaceDataCache: updatedCache } =
+      get();
+    savePortable({
+      profiles,
+      workspaces: updatedWorkspaces,
+      workspaceDataCache: updatedCache,
+    });
 
     // Sync to Gist immediately (not debounced) so other tabs see the new name
     if (pat && gistId && updatedCache[workspaceId]) {
       try {
-        await updateGistFile(gistId, workspace.filename, serializeWorkspaceData(updatedCache[workspaceId]), pat)
+        await updateGistFile(
+          gistId,
+          workspace.filename,
+          serializeWorkspaceData(updatedCache[workspaceId]),
+          pat
+        );
       } catch {
-        set({ syncError: 'Failed to save rename to cloud' })
+        set({ syncError: 'Failed to save rename to cloud' });
       }
     }
   },
 
   reorderWorkspaces: (oldIndex: number, newIndex: number) => {
-    const { workspaces, profiles, activeProfileId, pat, gistId } = get()
-    const activeProfile = profiles.find(p => p.id === activeProfileId)
-    
-    if (!activeProfile) return
+    const { workspaces, profiles, activeProfileId, pat, gistId } = get();
+    const activeProfile = profiles.find((p) => p.id === activeProfileId);
+
+    if (!activeProfile) return;
 
     // Separate workspaces by profile
-    const profileWorkspaces = workspaces.filter(w => w.profile === activeProfile.name)
-    const otherWorkspaces = workspaces.filter(w => w.profile !== activeProfile.name)
+    const profileWorkspaces = workspaces.filter(
+      (w) => w.profile === activeProfile.name
+    );
+    const otherWorkspaces = workspaces.filter(
+      (w) => w.profile !== activeProfile.name
+    );
 
     // Reorder the profile's workspaces
-    const reordered = [...profileWorkspaces]
-    const [moved] = reordered.splice(oldIndex, 1)
-    reordered.splice(newIndex, 0, moved)
+    const reordered = [...profileWorkspaces];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
 
     // Combine back: profile workspaces first (in new order), then others
-    const newWorkspaces = [...reordered, ...otherWorkspaces]
+    const newWorkspaces = [...reordered, ...otherWorkspaces];
 
-    set({ workspaces: newWorkspaces })
+    set({ workspaces: newWorkspaces });
 
     // Save to portable cache
-    const { workspaceDataCache } = get()
-    savePortable({ profiles, workspaces: newWorkspaces, workspaceDataCache })
+    const { workspaceDataCache } = get();
+    savePortable({ profiles, workspaces: newWorkspaces, workspaceDataCache });
 
     // Sync workspace order to Gist (non-blocking)
     if (pat && gistId) {
-      const workspaceOrder = reordered.map(w => w.id)
-      saveProfileSettings(gistId, activeProfile.name, {
-        name: activeProfile.name,
-        accentColor: activeProfile.accentColor,
-        createdAt: activeProfile.createdAt,
-        workspaceOrder,
-      }, pat).catch(() => {
+      const workspaceOrder = reordered.map((w) => w.id);
+      saveProfileSettings(
+        gistId,
+        activeProfile.name,
+        {
+          name: activeProfile.name,
+          accentColor: activeProfile.accentColor,
+          createdAt: activeProfile.createdAt,
+          workspaceOrder,
+        },
+        pat
+      ).catch(() => {
         // Silently ignore - order sync is not critical
-      })
+      });
     }
   },
 
@@ -1016,8 +1190,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   addLink: (url: string, title: string, favicon?: string) => {
-    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
     const newLink: LinkItem = {
       id: nanoid(),
@@ -1025,112 +1200,170 @@ export const useAppStore = create<AppStore>((set, get) => ({
       title,
       favicon,
       pinned: false,
-    }
+    };
 
-    const currentData = workspaceDataCache[activeWorkspaceId]
+    const currentData = workspaceDataCache[activeWorkspaceId];
     const updatedData = {
       ...currentData,
       links: [...currentData.links, newLink],
       updatedAt: Date.now(),
-    }
+    };
 
-    set(state => ({
-      workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
-    }))
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
 
     // Save to portable cache immediately
-    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
 
     // Queue debounced sync to Gist
-    get().saveWorkspace()
+    get().saveWorkspace();
   },
 
   removeLink: (linkId: string) => {
-    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
-    const currentData = workspaceDataCache[activeWorkspaceId]
+    const currentData = workspaceDataCache[activeWorkspaceId];
     const updatedData = {
       ...currentData,
-      links: currentData.links.filter(l => l.id !== linkId),
+      links: currentData.links.filter((l) => l.id !== linkId),
       updatedAt: Date.now(),
-    }
+    };
 
-    set(state => ({
-      workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
-    }))
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
 
     // Save to portable cache immediately
-    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
 
     // Queue debounced sync to Gist
-    get().saveWorkspace()
+    get().saveWorkspace();
   },
 
   updateLink: (linkId: string, updates: Partial<LinkItem>) => {
-    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
-    const currentData = workspaceDataCache[activeWorkspaceId]
+    const currentData = workspaceDataCache[activeWorkspaceId];
     const updatedData = {
       ...currentData,
-      links: currentData.links.map(l => l.id === linkId ? { ...l, ...updates } : l),
+      links: currentData.links.map((l) =>
+        l.id === linkId ? { ...l, ...updates } : l
+      ),
       updatedAt: Date.now(),
-    }
+    };
 
-    set(state => ({
-      workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
-    }))
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
 
     // Save to portable cache immediately
-    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
 
     // Queue debounced sync to Gist
-    get().saveWorkspace()
+    get().saveWorkspace();
   },
 
   togglePinLink: (linkId: string) => {
-    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
-    const currentData = workspaceDataCache[activeWorkspaceId]
+    const currentData = workspaceDataCache[activeWorkspaceId];
     const updatedData = {
       ...currentData,
-      links: currentData.links.map(l => l.id === linkId ? { ...l, pinned: !l.pinned } : l),
+      links: currentData.links.map((l) =>
+        l.id === linkId ? { ...l, pinned: !l.pinned } : l
+      ),
       updatedAt: Date.now(),
-    }
+    };
 
-    set(state => ({
-      workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
-    }))
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
 
     // Save to portable cache immediately
-    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
 
     // Queue debounced sync to Gist
-    get().saveWorkspace()
+    get().saveWorkspace();
   },
 
   reorderLinks: (oldIndex: number, newIndex: number) => {
-    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
-    const currentData = workspaceDataCache[activeWorkspaceId]
-    const links = [...currentData.links]
-    const [removed] = links.splice(oldIndex, 1)
-    links.splice(newIndex, 0, removed)
+    const currentData = workspaceDataCache[activeWorkspaceId];
+    const links = [...currentData.links];
+    const [removed] = links.splice(oldIndex, 1);
+    links.splice(newIndex, 0, removed);
 
-    const updatedData = { ...currentData, links, updatedAt: Date.now() }
+    const updatedData = { ...currentData, links, updatedAt: Date.now() };
 
-    set(state => ({
-      workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
-    }))
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
 
     // Save to portable cache immediately
-    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
 
     // Queue debounced sync to Gist
-    get().saveWorkspace()
+    get().saveWorkspace();
   },
 
   // ============================================================================
@@ -1140,39 +1373,51 @@ export const useAppStore = create<AppStore>((set, get) => ({
   saveWorkspace: () => {
     if (!debouncedSave) {
       debouncedSave = debounce(async () => {
-        const state = get()
-        const { activeWorkspaceId, workspaceDataCache, workspaces, pat, gistId } = state
-        
-        if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
+        const state = get();
+        const {
+          activeWorkspaceId,
+          workspaceDataCache,
+          workspaces,
+          pat,
+          gistId,
+        } = state;
 
-        const workspace = workspaces.find(w => w.id === activeWorkspaceId)
-        if (!workspace) return
+        if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId])
+          return;
 
-        const workspaceData = workspaceDataCache[activeWorkspaceId]
+        const workspace = workspaces.find((w) => w.id === activeWorkspaceId);
+        if (!workspace) return;
 
-        set({ isSaving: true })
+        const workspaceData = workspaceDataCache[activeWorkspaceId];
+
+        set({ isSaving: true });
 
         // Save to portable cache first (instant, offline)
         await savePortable({
           profiles: state.profiles,
           workspaces: state.workspaces,
           workspaceDataCache: state.workspaceDataCache,
-        })
+        });
 
         // Sync to Gist if online (non-blocking)
         if (pat && gistId) {
           try {
-            await updateGistFile(gistId, workspace.filename, serializeWorkspaceData(workspaceData), pat)
+            await updateGistFile(
+              gistId,
+              workspace.filename,
+              serializeWorkspaceData(workspaceData),
+              pat
+            );
           } catch {
-            set({ syncError: 'Failed to save to cloud' })
+            set({ syncError: 'Failed to save to cloud' });
           }
         }
 
-        set({ isSaving: false })
-      }, 3000)
+        set({ isSaving: false });
+      }, 3000);
     }
 
-    debouncedSave()
+    debouncedSave();
   },
 
   // ============================================================================
@@ -1180,35 +1425,42 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   setAccentColor: (accentColor: AccentColor) => {
-    const { pat, gistId, activeProfileId, profiles } = get()
-    const activeProfile = profiles.find(p => p.id === activeProfileId)
+    const { pat, gistId, activeProfileId, profiles } = get();
+    const activeProfile = profiles.find((p) => p.id === activeProfileId);
 
     // Optimistic update
-    set(state => ({
+    set((state) => ({
       accentColor,
-      profiles: state.profiles.map(p => 
+      profiles: state.profiles.map((p) =>
         p.id === activeProfileId ? { ...p, accentColor } : p
       ),
-    }))
+    }));
 
     // Update portable cache
-    const { profiles: updatedProfiles, workspaces, workspaceDataCache } = get()
-    savePortable({ profiles: updatedProfiles, workspaces, workspaceDataCache })
+    const { profiles: updatedProfiles, workspaces, workspaceDataCache } = get();
+    savePortable({ profiles: updatedProfiles, workspaces, workspaceDataCache });
 
     // Sync to Gist (non-blocking)
     if (pat && gistId && activeProfile) {
       // Preserve workspace order when saving accent color
-      const profileWorkspaces = workspaces.filter(w => w.profile === activeProfile.name)
-      const workspaceOrder = profileWorkspaces.map(w => w.id)
-      
-      saveProfileSettings(gistId, activeProfile.name, {
-        name: activeProfile.name,
-        accentColor,
-        createdAt: activeProfile.createdAt,
-        workspaceOrder,
-      }, pat).catch(() => {
+      const profileWorkspaces = workspaces.filter(
+        (w) => w.profile === activeProfile.name
+      );
+      const workspaceOrder = profileWorkspaces.map((w) => w.id);
+
+      saveProfileSettings(
+        gistId,
+        activeProfile.name,
+        {
+          name: activeProfile.name,
+          accentColor,
+          createdAt: activeProfile.createdAt,
+          workspaceOrder,
+        },
+        pat
+      ).catch(() => {
         // Silently ignore - preference sync is not critical
-      })
+      });
     }
   },
 
@@ -1217,7 +1469,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   clearSyncError: () => set({ syncError: null }),
-}))
+}));
 
 // ============================================================================
 // SELECTORS (for derived state)
@@ -1228,6 +1480,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
  * Use this instead of accessing workspaceDataCache directly
  */
 export const selectActiveWorkspaceData = (state: AppStore) => {
-  if (!state.activeWorkspaceId) return null
-  return state.workspaceDataCache[state.activeWorkspaceId] || null
-}
+  if (!state.activeWorkspaceId) return null;
+  return state.workspaceDataCache[state.activeWorkspaceId] || null;
+};

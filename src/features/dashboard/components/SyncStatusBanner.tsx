@@ -1,26 +1,26 @@
-import { Alert, IconButton, HStack, Text } from '@chakra-ui/react'
-import { IconX, IconCloudOff, IconRefresh } from '@tabler/icons-react'
-import { useAppStore } from '@/features/store/useAppStore'
+import { Alert, IconButton, HStack, Text } from '@chakra-ui/react';
+import { IconX, IconCloudOff, IconRefresh } from '@tabler/icons-react';
+import { useAppStore } from '@/features/store/useAppStore';
 
 /**
  * Non-blocking sync status banner
  * Shows sync errors as warnings without blocking the UI
  */
 export function SyncStatusBanner() {
-  const syncError = useAppStore(state => state.syncError)
-  const isSyncing = useAppStore(state => state.isSyncing)
-  const clearSyncError = useAppStore(state => state.clearSyncError)
-  const sync = useAppStore(state => state.sync)
-  const accentColor = useAppStore(state => state.accentColor)
+  const syncError = useAppStore((state) => state.syncError);
+  const isSyncing = useAppStore((state) => state.isSyncing);
+  const clearSyncError = useAppStore((state) => state.clearSyncError);
+  const sync = useAppStore((state) => state.sync);
+  const accentColor = useAppStore((state) => state.accentColor);
 
   // Don't show anything if no error and not syncing
   if (!syncError && !isSyncing) {
-    return null
+    return null;
   }
 
   // Show subtle syncing indicator (optional - can remove if too noisy)
   if (isSyncing && !syncError) {
-    return null // Don't show anything while syncing - keep it invisible
+    return null; // Don't show anything while syncing - keep it invisible
   }
 
   // Show error banner
@@ -64,8 +64,8 @@ export function SyncStatusBanner() {
           </HStack>
         </HStack>
       </Alert.Root>
-    )
+    );
   }
 
-  return null
+  return null;
 }

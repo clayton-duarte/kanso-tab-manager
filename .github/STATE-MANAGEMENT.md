@@ -38,15 +38,16 @@ Session state is **device-specific** and should NOT sync between devices. This d
 
 ```typescript
 interface SessionState {
-  pat: string | null           // GitHub Personal Access Token
-  gistId: string | null        // Connected Gist ID
-  activeProfileId: string | null
-  activeWorkspaceId: string | null
-  profileWorkspaceMap: Record<string, string>  // Last workspace per profile
+  pat: string | null; // GitHub Personal Access Token
+  gistId: string | null; // Connected Gist ID
+  activeProfileId: string | null;
+  activeWorkspaceId: string | null;
+  profileWorkspaceMap: Record<string, string>; // Last workspace per profile
 }
 ```
 
 **Why non-portable:**
+
 - PAT is sensitive and device-specific
 - Active selections should be independent per device
 - Profile/workspace navigation history is personal preference
@@ -59,13 +60,14 @@ Portable state syncs to GitHub Gist and should be consistent across all devices.
 
 ```typescript
 interface PortableState {
-  profiles: Profile[]
-  workspaces: WorkspaceMeta[]
-  workspaceDataCache: Record<string, WorkspaceData>
+  profiles: Profile[];
+  workspaces: WorkspaceMeta[];
+  workspaceDataCache: Record<string, WorkspaceData>;
 }
 ```
 
 **What syncs:**
+
 - Profile configurations (name, accent color)
 - Workspace metadata and content
 - Links, their order, and pin status
@@ -194,12 +196,12 @@ Every `WorkspaceData` includes an `updatedAt` timestamp that updates on any modi
 
 ```typescript
 interface WorkspaceData {
-  id: string
-  name: string
-  profile: string
-  createdAt: number
-  updatedAt: number    // ◄── Conflict resolution key
-  links: LinkItem[]
+  id: string;
+  name: string;
+  profile: string;
+  createdAt: number;
+  updatedAt: number; // ◄── Conflict resolution key
+  links: LinkItem[];
 }
 ```
 
@@ -226,14 +228,14 @@ interface WorkspaceData {
 
 ### When `updatedAt` is Set
 
-| Action | Sets updatedAt |
-|--------|----------------|
-| `addLink` | ✅ Yes |
-| `removeLink` | ✅ Yes |
-| `updateLink` | ✅ Yes |
-| `togglePinLink` | ✅ Yes |
-| `reorderLinks` | ✅ Yes |
-| `renameWorkspace` | ✅ Yes |
+| Action            | Sets updatedAt                       |
+| ----------------- | ------------------------------------ |
+| `addLink`         | ✅ Yes                               |
+| `removeLink`      | ✅ Yes                               |
+| `updateLink`      | ✅ Yes                               |
+| `togglePinLink`   | ✅ Yes                               |
+| `reorderLinks`    | ✅ Yes                               |
+| `renameWorkspace` | ✅ Yes                               |
 | `createWorkspace` | ✅ Yes (via `createdAt = updatedAt`) |
 
 ---
@@ -355,16 +357,16 @@ The filename is generated when the workspace is created and **never changes**. T
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| **chrome.storage.local over IndexedDB** | Simpler API, sufficient for our data size (~5MB limit), better extension support |
-| **Split session/portable** | PAT security, per-device navigation state |
-| **3-second debounce for sync** | Batch rapid changes, reduce API calls |
-| **Immediate cache writes** | Instant persistence, survives unexpected tab close |
-| **Last-write-wins conflict resolution** | Simple, predictable, sufficient for single-user use case |
-| **Workspace name in JSON, not filename** | Allows renaming without breaking file references |
-| **`updatedAt` timestamp** | Enables proper conflict resolution during sync |
-| **Non-blocking sync** | Never degrade UX for network issues |
+| Decision                                 | Rationale                                                                        |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| **chrome.storage.local over IndexedDB**  | Simpler API, sufficient for our data size (~5MB limit), better extension support |
+| **Split session/portable**               | PAT security, per-device navigation state                                        |
+| **3-second debounce for sync**           | Batch rapid changes, reduce API calls                                            |
+| **Immediate cache writes**               | Instant persistence, survives unexpected tab close                               |
+| **Last-write-wins conflict resolution**  | Simple, predictable, sufficient for single-user use case                         |
+| **Workspace name in JSON, not filename** | Allows renaming without breaking file references                                 |
+| **`updatedAt` timestamp**                | Enables proper conflict resolution during sync                                   |
+| **Non-blocking sync**                    | Never degrade UX for network issues                                              |
 
 ---
 
@@ -375,29 +377,29 @@ interface AppStore {
   // ═══════════════════════════════════════════════════════════════════════
   // SESSION STATE (non-portable, device-specific)
   // ═══════════════════════════════════════════════════════════════════════
-  pat: string | null
-  gistId: string | null
-  activeProfileId: string | null
-  activeWorkspaceId: string | null
-  profileWorkspaceMap: Record<string, string>
+  pat: string | null;
+  gistId: string | null;
+  activeProfileId: string | null;
+  activeWorkspaceId: string | null;
+  profileWorkspaceMap: Record<string, string>;
 
   // ═══════════════════════════════════════════════════════════════════════
   // PORTABLE STATE (synced to Gist)
   // ═══════════════════════════════════════════════════════════════════════
-  profiles: Profile[]
-  workspaces: WorkspaceMeta[]
-  workspaceDataCache: Record<string, WorkspaceData>
-  lastSyncedAt: number | null
+  profiles: Profile[];
+  workspaces: WorkspaceMeta[];
+  workspaceDataCache: Record<string, WorkspaceData>;
+  lastSyncedAt: number | null;
 
   // ═══════════════════════════════════════════════════════════════════════
   // UI STATE (transient, not persisted)
   // ═══════════════════════════════════════════════════════════════════════
-  isInitializing: boolean
-  isAuthenticated: boolean
-  syncError: string | null
-  isSyncing: boolean
-  isSaving: boolean
-  accentColor: AccentColor
+  isInitializing: boolean;
+  isAuthenticated: boolean;
+  syncError: string | null;
+  isSyncing: boolean;
+  isSaving: boolean;
+  accentColor: AccentColor;
 }
 ```
 

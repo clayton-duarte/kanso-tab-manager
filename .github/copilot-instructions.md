@@ -27,6 +27,7 @@ This project uses **Chakra UI v3** with vanilla components. Follow these rules:
 ### Accent Color System
 
 The app supports dynamic accent colors stored in user preferences:
+
 - Available colors: `gray`, `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `cyan`, `purple`, `pink`
 - Access via: `const { accentColor } = useAppStore()`
 - Apply via: `colorPalette={accentColor}`

@@ -1,30 +1,24 @@
-import {
-  Box,
-  Flex,
-  Text,
-  IconButton,
-  Image,
-} from '@chakra-ui/react'
+import { Box, Flex, Text, IconButton, Image } from '@chakra-ui/react';
 import {
   IconPin,
   IconPinnedFilled,
   IconTrash,
   IconGripVertical,
   IconExternalLink,
-} from '@tabler/icons-react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { useState } from 'react'
-import type { LinkItem } from '@/features/github/types'
-import { useAppStore } from '@/features/store/useAppStore'
+} from '@tabler/icons-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useState } from 'react';
+import type { LinkItem } from '@/features/github/types';
+import { useAppStore } from '@/features/store/useAppStore';
 
 interface LinkCardProps {
-  link: LinkItem
+  link: LinkItem;
 }
 
 export function LinkCard({ link }: LinkCardProps) {
-  const { removeLink, togglePinLink, accentColor } = useAppStore()
-  const [isHovered, setIsHovered] = useState(false)
+  const { removeLink, togglePinLink, accentColor } = useAppStore();
+  const [isHovered, setIsHovered] = useState(false);
 
   const {
     attributes,
@@ -33,36 +27,36 @@ export function LinkCard({ link }: LinkCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: link.id })
+  } = useSortable({ id: link.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  }
+  };
 
   const handleOpenLink = () => {
-    window.open(link.url, '_blank', 'noopener,noreferrer')
-  }
+    window.open(link.url, '_blank', 'noopener,noreferrer');
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    removeLink(link.id)
-  }
+    e.stopPropagation();
+    removeLink(link.id);
+  };
 
   const handleTogglePin = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    togglePinLink(link.id)
-  }
+    e.stopPropagation();
+    togglePinLink(link.id);
+  };
 
   // Extract domain for display
   const domain = (() => {
     try {
-      return new URL(link.url).hostname.replace('www.', '')
+      return new URL(link.url).hostname.replace('www.', '');
     } catch {
-      return link.url
+      return link.url;
     }
-  })()
+  })();
 
   return (
     <Box
@@ -105,7 +99,11 @@ export function LinkCard({ link }: LinkCardProps) {
             colorPalette={accentColor}
             onClick={handleTogglePin}
           >
-            {link.pinned ? <IconPinnedFilled size={14} /> : <IconPin size={14} />}
+            {link.pinned ? (
+              <IconPinnedFilled size={14} />
+            ) : (
+              <IconPin size={14} />
+            )}
           </IconButton>
           <IconButton
             aria-label="Open in new tab"
@@ -113,8 +111,8 @@ export function LinkCard({ link }: LinkCardProps) {
             variant="ghost"
             colorPalette={accentColor}
             onClick={(e) => {
-              e.stopPropagation()
-              handleOpenLink()
+              e.stopPropagation();
+              handleOpenLink();
             }}
           >
             <IconExternalLink size={14} />
@@ -148,7 +146,7 @@ export function LinkCard({ link }: LinkCardProps) {
               boxSize="24px"
               borderRadius="sm"
               onError={(e) => {
-                e.currentTarget.style.display = 'none'
+                e.currentTarget.style.display = 'none';
               }}
             />
           ) : (
@@ -176,15 +174,10 @@ export function LinkCard({ link }: LinkCardProps) {
           </Text>
         </Flex>
 
-        <Text
-          as="span"
-          fontSize="xs"
-          color="gray.500"
-          lineClamp={1}
-        >
+        <Text as="span" fontSize="xs" color="gray.500" lineClamp={1}>
           {domain}
         </Text>
       </Flex>
     </Box>
-  )
+  );
 }
