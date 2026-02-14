@@ -43,7 +43,9 @@ export interface AppActions {
   
   // Authentication
   setCredentials: (pat: string, gistId: string) => Promise<void>
+  setupWithNewGist: (pat: string) => Promise<void>
   clearCredentials: () => void
+  deleteGistAndLogout: () => Promise<void>
   
   // Navigation
   switchProfile: (profileId: string) => void

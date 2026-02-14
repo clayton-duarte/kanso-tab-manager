@@ -18,11 +18,11 @@ import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { LinkCard } from './components/LinkCard'
 import { DropZone } from './components/DropZone'
-import { SettingsModal } from './components/SettingsModal'
+import { SettingsDrawer } from './components/SettingsDrawer'
 import { useAppStore } from '@/features/store/useAppStore'
 
 export function DashboardLayout() {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const { activeWorkspaceData, reorderLinks } = useAppStore()
 
   const sensors = useSensors(
@@ -61,7 +61,7 @@ export function DashboardLayout() {
     >
       {/* Top Bar - spans full width */}
       <GridItem colSpan={2}>
-        <TopBar onOpenSettings={() => setIsSettingsOpen(true)} />
+        <TopBar onOpenSettings={() => setSettingsOpen(true)} />
       </GridItem>
 
       {/* Sidebar */}
@@ -101,10 +101,10 @@ export function DashboardLayout() {
         </DropZone>
       </GridItem>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+      {/* Settings Drawer */}
+      <SettingsDrawer
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
       />
     </Grid>
   )

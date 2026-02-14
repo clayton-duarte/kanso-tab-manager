@@ -13,6 +13,7 @@ import {
   serializeWorkspaceData,
   validatePat,
   validateGist,
+  createNewGist,
 } from '../github/api'
 
 // Cache for workspace data (to avoid refetching)
@@ -196,6 +197,81 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeProfileId: null,
       activeWorkspaceId: null,
     })
+  },
+
+  // Setup with new Gist (creates a new Gist automatically)
+  setupWithNewGist: async (pat: string) => {
+    set({ isLoading: true, error: null })
+
+    try {
+      // Validate PAT
+      const isPatValid = await validatePat(pat)
+      if (!isPatValid) {
+        set({
+          error: 'Invalid GitHub Personal Access Token',
+          isLoading: false,
+        })
+        return
+      }
+
+      // Create a new Gist
+      const gistId = await createNewGist(pat)
+
+      // Store in chrome.storage.local
+      await chrome.storage.local.set({ pat, gistId })
+
+      // Create default profile
+      const defaultProfile: Profile = {
+        id: nanoid(),
+        name: 'Personal',
+        createdAt: Date.now(),
+      }
+
+      set({
+        pat,
+        gistId,
+        isAuthenticated: true,
+        profiles: [defaultProfile],
+        workspaces: [],
+        activeProfileId: defaultProfile.id,
+        activeWorkspaceId: null,
+        activeWorkspaceData: null,
+        isLoading: false,
+      })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to create Gist',
+        isLoading: false,
+      })
+    }
+  },
+
+  // Delete Gist and logout
+  deleteGistAndLogout: async () => {
+    const { pat, gistId } = get()
+    
+    if (pat && gistId) {
+      try {
+        // Delete the entire Gist
+        const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+          method: 'DELETE',
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${pat}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        })
+        
+        if (!response.ok && response.status !== 404) {
+          throw new Error('Failed to delete Gist')
+        }
+      } catch (error) {
+        console.error('Failed to delete Gist:', error)
+        // Continue with logout even if delete fails
+      }
+    }
+
+    get().clearCredentials()
   },
 
   // Switch profile

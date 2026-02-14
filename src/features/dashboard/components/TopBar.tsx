@@ -59,7 +59,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             color="purple.400"
             letterSpacing="tight"
           >
-            Zen
+            Kanso
           </Text>
 
           <Tabs.Root

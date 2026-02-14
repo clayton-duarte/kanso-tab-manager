@@ -194,18 +194,18 @@ export async function validateGist(gistId: string, pat: string): Promise<boolean
 }
 
 /**
- * Create a new private Gist for Zen Tab Manager
+ * Create a new private Gist for Kanso Tab Manager
  */
 export async function createNewGist(pat: string): Promise<string> {
   const response = await fetch(`${GITHUB_API_BASE}/gists`, {
     method: 'POST',
     headers: createHeaders(pat),
     body: JSON.stringify({
-      description: 'Zen Tab Manager Data',
+      description: 'Kanso Tab Manager Data',
       public: false,
       files: {
         'README.md': {
-          content: '# Zen Tab Manager Data\n\nThis Gist stores workspace data for the Zen Tab Manager Chrome extension.\n\nDo not edit these files manually.',
+          content: '# Kanso Tab Manager Data\n\nThis Gist stores workspace data for the Kanso Tab Manager Chrome extension.\n\nDo not edit these files manually.',
         },
       },
     }),

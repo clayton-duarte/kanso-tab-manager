@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Zen Tab Manager",
+  "name": "Kanso Tab Manager",
   "version": "0.1.0",
   "description": "A privacy-first tab manager that replaces your New Tab page. Organize workflows and links into Profiles and Workspaces, synced via GitHub Gist.",
   "icons": {
