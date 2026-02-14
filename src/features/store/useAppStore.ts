@@ -25,6 +25,27 @@ const workspaceDataCache: Record<string, WorkspaceData> = {}
 // Debounced save function (will be initialized in the store)
 let debouncedSave: ReturnType<typeof debounce> | null = null
 
+// Cache key for SWR-like strategy
+const CACHE_KEY = 'kanso_cache'
+
+interface CachedState {
+  profiles: Profile[]
+  workspaces: WorkspaceMeta[]
+  activeWorkspaceData: WorkspaceData | null
+  cachedAt: number
+}
+
+// Helper to save cache
+async function saveCache(state: CachedState): Promise<void> {
+  await chrome.storage.local.set({ [CACHE_KEY]: state })
+}
+
+// Helper to load cache
+async function loadCache(): Promise<CachedState | null> {
+  const result = await chrome.storage.local.get([CACHE_KEY]) as { [CACHE_KEY]?: CachedState }
+  return result[CACHE_KEY] || null
+}
+
 export const useAppStore = create<AppStore>((set, get) => ({
   // Auth state
   pat: null,
@@ -44,10 +65,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   workspaces: [],
   activeWorkspaceData: null,
 
-  // Initialize the store
+  // Initialize the store (SWR-like: show cached data immediately, revalidate in background)
   init: async () => {
-    set({ isLoading: true, error: null })
-
     try {
       // Load credentials and preferences from chrome.storage.local
       const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor', 'activeProfileId', 'activeWorkspaceId', 'profileWorkspaceMap']) as { 
@@ -60,11 +79,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       const { pat, gistId, accentColor, activeProfileId: savedProfileId, activeWorkspaceId: savedWorkspaceId } = result
       
-      // Set accent color if stored
-      if (accentColor) {
-        set({ accentColor })
-      }
-
       if (!pat || !gistId) {
         set({
           isAuthenticated: false,
@@ -73,6 +87,65 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return
       }
 
+      // Try to load cached state first (SWR: stale-while-revalidate)
+      let cache: CachedState | null = null
+      try {
+        cache = await loadCache()
+      } catch {
+        // Ignore cache loading errors
+      }
+      
+      if (cache && cache.profiles.length > 0) {
+        // Show cached data immediately - no loading spinner!
+        const activeProfile = cache.profiles.find(p => p.id === savedProfileId) || cache.profiles[0]
+        const activeWorkspace = cache.workspaces.find(w => w.id === savedWorkspaceId) || 
+          cache.workspaces.find(w => w.profile === activeProfile?.name)
+        
+        // Populate the in-memory cache
+        if (cache.activeWorkspaceData) {
+          workspaceDataCache[cache.activeWorkspaceData.id] = cache.activeWorkspaceData
+        }
+        
+        set({
+          pat,
+          gistId,
+          isAuthenticated: true,
+          profiles: cache.profiles,
+          workspaces: cache.workspaces,
+          activeProfileId: activeProfile?.id || null,
+          activeWorkspaceId: activeWorkspace?.id || null,
+          activeWorkspaceData: cache.activeWorkspaceData,
+          accentColor: activeProfile?.accentColor || accentColor || 'gray',
+          isLoading: false,
+        })
+        
+        // Revalidate in background (don't await)
+        get().revalidate()
+        return
+      }
+
+      // No cache - show loading and fetch from Gist
+      set({ isLoading: true, error: null, accentColor: accentColor || 'gray' })
+      await get().revalidate()
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to initialize',
+        isLoading: false,
+        isAuthenticated: false,
+      })
+    }
+  },
+
+  // Revalidate data from Gist (background refresh)
+  revalidate: async () => {
+    const { pat, gistId } = get()
+    
+    if (!pat || !gistId) {
+      set({ isLoading: false })
+      return
+    }
+    
+    try {
       // Validate credentials
       const isPatValid = await validatePat(pat)
       if (!isPatValid) {
@@ -83,6 +156,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
         })
         return
       }
+
+      // Load saved session state
+      const sessionResult = await chrome.storage.local.get(['activeProfileId', 'activeWorkspaceId']) as { 
+        activeProfileId?: string;
+        activeWorkspaceId?: string;
+      }
+      const { activeProfileId: savedProfileId, activeWorkspaceId: savedWorkspaceId } = sessionResult
 
       // Fetch the Gist
       const gist = await fetchGist(gistId, pat)
@@ -121,7 +201,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const profileSettingsResults = await Promise.all(
         Array.from(profileSet).map(async (name) => {
           const settings = await fetchProfileSettings(gistId, name, pat)
-          console.log(`Loaded profile settings for "${name}":`, settings)
           return { name, settings }
         })
       )
@@ -196,8 +275,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Load the active workspace data if one exists
       if (activeWorkspace) {
         await get().switchWorkspace(activeWorkspace.id)
+        
+        // Save cache for SWR
+        const { activeWorkspaceData } = get()
+        await saveCache({
+          profiles,
+          workspaces: workspacesList,
+          activeWorkspaceData,
+          cachedAt: Date.now(),
+        })
       }
     } catch (error) {
+      // Always set loading to false and show error
       set({
         error: error instanceof Error ? error.message : 'Failed to initialize',
         isLoading: false,
@@ -253,7 +342,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Clear credentials
   clearCredentials: () => {
-    chrome.storage.local.remove(['pat', 'gistId'])
+    chrome.storage.local.remove(['pat', 'gistId', CACHE_KEY])
     
     // Clear cache
     Object.keys(workspaceDataCache).forEach(key => delete workspaceDataCache[key])
@@ -438,7 +527,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Switch workspace
   switchWorkspace: async (workspaceId: string) => {
-    const { workspaces, pat, gistId } = get()
+    const { workspaces, pat, gistId, profiles } = get()
     const workspace = workspaces.find(w => w.id === workspaceId)
     
     if (!workspace) return
@@ -457,6 +546,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         profileWorkspaceMap[activeProfileId] = workspaceId
       }
       chrome.storage.local.set({ activeWorkspaceId: workspaceId, profileWorkspaceMap })
+      
+      // Update SWR cache
+      await saveCache({
+        profiles,
+        workspaces,
+        activeWorkspaceData: workspaceDataCache[workspaceId],
+        cachedAt: Date.now(),
+      })
       return
     }
 
@@ -517,13 +614,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
       })
 
       // Save to session storage for persistence and update profile workspace map
-      const { activeProfileId } = get()
+      const { activeProfileId, profiles, workspaces } = get()
       const mapResult = await chrome.storage.local.get(['profileWorkspaceMap']) as { profileWorkspaceMap?: Record<string, string> }
       const profileWorkspaceMap = mapResult.profileWorkspaceMap || {}
       if (activeProfileId) {
         profileWorkspaceMap[activeProfileId] = workspaceId
       }
       chrome.storage.local.set({ activeWorkspaceId: workspaceId, profileWorkspaceMap })
+      
+      // Update SWR cache
+      await saveCache({
+        profiles,
+        workspaces,
+        activeWorkspaceData: workspaceData,
+        cachedAt: Date.now(),
+      })
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to load workspace',
@@ -918,6 +1023,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
             serializeWorkspaceData(state.activeWorkspaceData),
             state.pat
           )
+          
+          // Update SWR cache after successful save
+          await saveCache({
+            profiles: state.profiles,
+            workspaces: state.workspaces,
+            activeWorkspaceData: state.activeWorkspaceData,
+            cachedAt: Date.now(),
+          })
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to save',
@@ -968,9 +1081,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
           createdAt: activeProfile.createdAt,
         }
         await saveProfileSettings(gistId, activeProfile.name, profileSettings, pat)
-        console.log('Saved profile settings:', profileSettings)
-      } catch (error) {
-        console.error('Failed to save profile settings:', error)
+      } catch {
+        // Silently fail for preference saves
       }
     }
   },

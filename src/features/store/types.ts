@@ -75,6 +75,7 @@ export interface AppActions {
   
   // Sync
   saveWorkspace: () => Promise<void>
+  revalidate: () => Promise<void>
   
   // Error handling
   setError: (error: string | null) => void
