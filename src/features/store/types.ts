@@ -117,6 +117,8 @@ export interface AppActions {
   deleteWorkspace: (workspaceId: string) => Promise<void>
   /** Rename a workspace */
   renameWorkspace: (workspaceId: string, newName: string) => void
+  /** Reorder workspaces within the active profile */
+  reorderWorkspaces: (oldIndex: number, newIndex: number) => void
   
   // Link CRUD (optimistic, sync debounced)
   /** Add a link to the active workspace */

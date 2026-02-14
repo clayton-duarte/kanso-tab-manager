@@ -14,9 +14,111 @@ import {
   IconX,
   IconTrash,
   IconPencil,
+  IconGripVertical,
 } from '@tabler/icons-react'
 import { useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAppStore } from '@/features/store/useAppStore'
+import type { WorkspaceMeta } from '@/features/github/types'
+
+interface SortableWorkspaceItemProps {
+  workspace: WorkspaceMeta
+  isActive: boolean
+  accentColor: string
+  onSwitch: () => void
+  onStartRename: (e: React.MouseEvent) => void
+  onDelete: (e: React.MouseEvent) => void
+}
+
+function SortableWorkspaceItem({
+  workspace,
+  isActive,
+  accentColor,
+  onSwitch,
+  onStartRename,
+  onDelete,
+}: SortableWorkspaceItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: workspace.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <Flex
+      ref={setNodeRef}
+      style={style}
+      align="center"
+      gap={1}
+      px={2}
+      py={2}
+      borderRadius="md"
+      cursor="pointer"
+      bg={isActive ? `${accentColor}.900/40` : 'transparent'}
+      color={isActive ? `${accentColor}.300` : 'gray.400'}
+      borderLeftWidth="2px"
+      borderLeftColor={isActive ? `${accentColor}.500` : 'transparent'}
+      onClick={onSwitch}
+    >
+      <Box
+        {...attributes}
+        {...listeners}
+        cursor="grab"
+        color="gray.500"
+        _hover={{ color: 'gray.300' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <IconGripVertical size={14} />
+      </Box>
+      <IconFolder size={16} />
+      <Text fontSize="sm" flex={1} lineClamp={1}>
+        {workspace.name}
+      </Text>
+      <IconButton
+        aria-label="Rename workspace"
+        size="xs"
+        variant="ghost"
+        colorPalette={accentColor}
+        onClick={onStartRename}
+      >
+        <IconPencil size={14} />
+      </IconButton>
+      <IconButton
+        aria-label="Delete workspace"
+        size="xs"
+        variant="ghost"
+        colorPalette={accentColor}
+        onClick={onDelete}
+      >
+        <IconTrash size={14} />
+      </IconButton>
+    </Flex>
+  )
+}
 
 export function Sidebar() {
   const {
@@ -28,6 +130,7 @@ export function Sidebar() {
     createWorkspace,
     deleteWorkspace,
     renameWorkspace,
+    reorderWorkspaces,
     accentColor,
   } = useAppStore()
 
@@ -89,6 +192,32 @@ export function Sidebar() {
     }
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = profileWorkspaces.findIndex(w => w.id === active.id)
+      const newIndex = profileWorkspaces.findIndex(w => w.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderWorkspaces(oldIndex, newIndex)
+      }
+    }
+  }
+
+  const workspaceIds = profileWorkspaces.map(w => w.id)
+
   return (
     <Box
       as="aside"
@@ -123,78 +252,58 @@ export function Sidebar() {
       </Flex>
 
       <VStack gap={1} align="stretch" p={2}>
-        {profileWorkspaces.map(workspace => (
-          editingWorkspaceId === workspace.id ? (
-            <HStack key={workspace.id} gap={1} px={2}>
-              <Input
-                size="sm"
-                value={editingWorkspaceName}
-                onChange={(e) => setEditingWorkspaceName(e.target.value)}
-                onKeyDown={handleRenameKeyDown}
-                autoFocus
-                variant="outline"
-              />
-              <IconButton
-                aria-label="Confirm"
-                size="xs"
-                colorPalette={accentColor}
-                onClick={handleRenameWorkspace}
-              >
-                <IconCheck size={14} />
-              </IconButton>
-              <IconButton
-                aria-label="Cancel"
-                size="xs"
-                variant="ghost"
-                colorPalette={accentColor}
-                onClick={() => {
-                  setEditingWorkspaceId(null)
-                  setEditingWorkspaceName('')
-                }}
-              >
-                <IconX size={14} />
-              </IconButton>
-            </HStack>
-          ) : (
-            <Flex
-              key={workspace.id}
-              align="center"
-              gap={2}
-              px={3}
-              py={2}
-              borderRadius="md"
-              cursor="pointer"
-              bg={activeWorkspaceId === workspace.id ? `${accentColor}.900/40` : 'transparent'}
-              color={activeWorkspaceId === workspace.id ? `${accentColor}.300` : 'gray.400'}
-              borderLeftWidth="2px"
-              borderLeftColor={activeWorkspaceId === workspace.id ? `${accentColor}.500` : 'transparent'}
-              onClick={() => switchWorkspace(workspace.id)}
-            >
-              <IconFolder size={16} />
-              <Text fontSize="sm" flex={1} lineClamp={1}>
-                {workspace.name}
-              </Text>
-              <IconButton
-                aria-label="Rename workspace"
-                size="xs"
-                variant="ghost"
-                colorPalette={accentColor}
-                onClick={(e) => handleStartRename(e, workspace)}
-              >
-                <IconPencil size={14} />
-              </IconButton>
-              <IconButton
-                aria-label="Delete workspace"
-                size="xs"
-                variant="ghost"
-                colorPalette={accentColor}
-                onClick={(e) => handleDeleteWorkspace(e, workspace.id)}
-              >
-                <IconTrash size={14} />
-              </IconButton>
-            </Flex>
-          )
-        ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={workspaceIds} strategy={verticalListSortingStrategy}>
+            {profileWorkspaces.map(workspace => (
+              editingWorkspaceId === workspace.id ? (
+                <HStack key={workspace.id} gap={1} px={2}>
+                  <Input
+                    size="sm"
+                    value={editingWorkspaceName}
+                    onChange={(e) => setEditingWorkspaceName(e.target.value)}
+                    onKeyDown={handleRenameKeyDown}
+                    autoFocus
+                    variant="outline"
+                  />
+                  <IconButton
+                    aria-label="Confirm"
+                    size="xs"
+                    colorPalette={accentColor}
+                    onClick={handleRenameWorkspace}
+                  >
+                    <IconCheck size={14} />
+                  </IconButton>
+                  <IconButton
+                    aria-label="Cancel"
+                    size="xs"
+                    variant="ghost"
+                    colorPalette={accentColor}
+                    onClick={() => {
+                      setEditingWorkspaceId(null)
+                      setEditingWorkspaceName('')
+                    }}
+                  >
+                    <IconX size={14} />
+                  </IconButton>
+                </HStack>
+              ) : (
+                <SortableWorkspaceItem
+                  key={workspace.id}
+                  workspace={workspace}
+                  isActive={activeWorkspaceId === workspace.id}
+                  accentColor={accentColor}
+                  onSwitch={() => switchWorkspace(workspace.id)}
+                  onStartRename={(e) => handleStartRename(e, workspace)}
+                  onDelete={(e) => handleDeleteWorkspace(e, workspace.id)}
+                />
+              )
+            ))}
+          </SortableContext>
+        </DndContext>
 
         {isCreating && (
           <HStack gap={1} px={2}>

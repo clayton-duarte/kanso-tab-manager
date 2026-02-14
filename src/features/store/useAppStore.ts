@@ -844,6 +844,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveWorkspace()
   },
 
+  reorderWorkspaces: (oldIndex: number, newIndex: number) => {
+    const { workspaces, profiles, activeProfileId } = get()
+    const activeProfile = profiles.find(p => p.id === activeProfileId)
+    
+    if (!activeProfile) return
+
+    // Separate workspaces by profile
+    const profileWorkspaces = workspaces.filter(w => w.profile === activeProfile.name)
+    const otherWorkspaces = workspaces.filter(w => w.profile !== activeProfile.name)
+
+    // Reorder the profile's workspaces
+    const reordered = [...profileWorkspaces]
+    const [moved] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, moved)
+
+    // Combine back: profile workspaces first (in new order), then others
+    const newWorkspaces = [...reordered, ...otherWorkspaces]
+
+    set({ workspaces: newWorkspaces })
+
+    // Save to portable cache
+    const { workspaceDataCache } = get()
+    savePortable({ profiles, workspaces: newWorkspaces, workspaceDataCache })
+  },
+
   // ============================================================================
   // LINK CRUD (optimistic, debounced sync)
   // ============================================================================
