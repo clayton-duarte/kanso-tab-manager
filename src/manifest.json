@@ -11,7 +11,7 @@
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://api.github.com/*",
     "https://gist.githubusercontent.com/*"

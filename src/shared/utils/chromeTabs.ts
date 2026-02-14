@@ -72,8 +72,8 @@ export async function closeAllTabs(): Promise<void> {
 }
 
 /**
- * Open a tab in suspended/discarded state
- * This saves memory by not loading the page until the user clicks on it
+ * Open a tab without loading it immediately
+ * Chrome will lazy-load the tab when the user clicks on it
  */
 export async function openSuspendedTab(
   tab: TabInfo,
@@ -82,7 +82,7 @@ export async function openSuspendedTab(
   if (!isExtensionContext()) return null;
 
   try {
-    // Create the tab inactive
+    // Create the tab inactive - Chrome won't fully load it until clicked
     const createdTab = await chrome.tabs.create({
       url: tab.url,
       active: false,
@@ -90,42 +90,33 @@ export async function openSuspendedTab(
       index,
     });
 
-    // Discard the tab to suspend it (saves memory)
-    // Note: chrome.tabs.discard may not work on all URLs (e.g., chrome:// pages)
-    if (createdTab.id) {
-      try {
-        await chrome.tabs.discard(createdTab.id);
-      } catch {
-        // Some tabs can't be discarded (e.g., chrome:// pages)
-        // That's okay, the tab is still created
-      }
-    }
+    // Note: We don't call chrome.tabs.discard() because:
+    // 1. It can cause about:blank if called before the tab loads
+    // 2. Chrome already lazy-loads inactive tabs in most cases
+    // 3. The discardAutoDiscardable property handles this better
 
     return createdTab;
   } catch (error) {
-    console.error('Failed to create suspended tab:', error);
+    console.error('Failed to create tab:', error);
     return null;
   }
 }
 
 /**
- * Open multiple tabs in order, all suspended
+ * Open multiple tabs in order, all placed after the dashboard tab
  * Returns after all tabs are created
  */
 export async function openTabsInOrder(tabs: TabInfo[]): Promise<void> {
   if (!isExtensionContext() || tabs.length === 0) return;
 
-  // Get all tabs to find the right starting index (after pinned tabs and extension tab)
-  const allTabs = await chrome.tabs.query({ currentWindow: true });
+  // Get the currently active tab (dashboard) to place new tabs after it
+  const [activeTab] = await chrome.tabs.query({
+    currentWindow: true,
+    active: true,
+  });
   
-  // Find the last pinned tab index, or 0 if no pinned tabs
-  const pinnedTabs = allTabs.filter((t) => t.pinned);
-  const lastPinnedIndex = pinnedTabs.length > 0 
-    ? Math.max(...pinnedTabs.map((t) => t.index)) 
-    : -1;
-  
-  // Start after the last pinned tab
-  const startIndex = lastPinnedIndex + 1;
+  // Start after the active (dashboard) tab
+  const startIndex = activeTab?.index !== undefined ? activeTab.index + 1 : 1;
 
   // Open tabs sequentially to maintain order
   for (let i = 0; i < tabs.length; i++) {
