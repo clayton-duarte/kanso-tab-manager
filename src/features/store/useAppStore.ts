@@ -55,7 +55,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // UI state
   activeProfileId: null,
   activeWorkspaceId: null,
-  isLoading: false,
+  isLoading: true,  // Start with loading to avoid welcome screen flash
   error: null,
   isSaving: false,
   accentColor: 'gray',
@@ -124,14 +124,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return
       }
 
-      // No cache - show loading and fetch from Gist
-      set({ isLoading: true, error: null, accentColor: accentColor || 'gray' })
+      // No cache - set authenticated (we have credentials) and fetch from Gist
+      set({ 
+        pat, 
+        gistId, 
+        isAuthenticated: true, 
+        isLoading: true, 
+        error: null, 
+        accentColor: accentColor || 'gray' 
+      })
       await get().revalidate()
     } catch (error) {
+      // Keep isAuthenticated status - just set error and stop loading
       set({
         error: error instanceof Error ? error.message : 'Failed to initialize',
         isLoading: false,
-        isAuthenticated: false,
       })
     }
   },
@@ -286,11 +293,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         })
       }
     } catch (error) {
-      // Always set loading to false and show error
+      // For network/parsing errors, just show error but keep user authenticated
+      // PAT validation failure is handled earlier and explicitly sets isAuthenticated: false
       set({
-        error: error instanceof Error ? error.message : 'Failed to initialize',
+        error: error instanceof Error ? error.message : 'Failed to load data',
         isLoading: false,
-        isAuthenticated: false,
       })
     }
   },
