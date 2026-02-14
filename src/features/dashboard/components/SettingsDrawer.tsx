@@ -298,7 +298,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                     {/* Delete Gist Button */}
                     <Button
                       variant="outline"
-                      colorPalette="red"
+                      colorPalette={accentColor}
                       onClick={() => setShowDeleteConfirm(true)}
                       justifyContent="flex-start"
                     >
@@ -346,7 +346,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                 Cancel
               </Button>
               <Button
-                colorPalette="red"
+                colorPalette={accentColor}
                 onClick={handleDeleteGist}
                 loading={isDeleting}
               >

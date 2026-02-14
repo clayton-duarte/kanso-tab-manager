@@ -98,7 +98,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     aria-label="Confirm"
                     size="xs"
                     variant="ghost"
-                    colorPalette="green"
+                    colorPalette={accentColor}
                     onClick={handleCreateProfile}
                   >
                     <IconCheck size={14} />
@@ -107,7 +107,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     aria-label="Cancel"
                     size="xs"
                     variant="ghost"
-                    colorPalette="red"
+                    colorPalette={accentColor}
                     onClick={() => {
                       setIsCreating(false)
                       setNewProfileName('')

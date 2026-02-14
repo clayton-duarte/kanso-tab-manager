@@ -111,7 +111,7 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label="Open in new tab"
             size="xs"
             variant="ghost"
-            colorPalette="blue"
+            colorPalette={accentColor}
             onClick={(e) => {
               e.stopPropagation()
               handleOpenLink()
@@ -123,7 +123,7 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label="Delete"
             size="xs"
             variant="ghost"
-            colorPalette="red"
+            colorPalette={accentColor}
             onClick={handleDelete}
           >
             <IconTrash size={14} />

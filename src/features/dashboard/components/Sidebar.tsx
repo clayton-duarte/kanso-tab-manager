@@ -137,7 +137,7 @@ export function Sidebar() {
               <IconButton
                 aria-label="Confirm"
                 size="xs"
-                colorPalette="green"
+                colorPalette={accentColor}
                 onClick={handleRenameWorkspace}
               >
                 <IconCheck size={14} />
@@ -146,7 +146,7 @@ export function Sidebar() {
                 aria-label="Cancel"
                 size="xs"
                 variant="ghost"
-                colorPalette="red"
+                colorPalette={accentColor}
                 onClick={() => {
                   setEditingWorkspaceId(null)
                   setEditingWorkspaceName('')
@@ -187,7 +187,7 @@ export function Sidebar() {
                 aria-label="Delete workspace"
                 size="xs"
                 variant="ghost"
-                colorPalette="red"
+                colorPalette={accentColor}
                 onClick={(e) => handleDeleteWorkspace(e, workspace.id)}
               >
                 <IconTrash size={14} />
@@ -211,7 +211,7 @@ export function Sidebar() {
               aria-label="Confirm"
               size="xs"
               variant="ghost"
-              colorPalette="green"
+              colorPalette={accentColor}
               onClick={handleCreateWorkspace}
             >
               <IconCheck size={14} />
@@ -220,7 +220,7 @@ export function Sidebar() {
               aria-label="Cancel"
               size="xs"
               variant="ghost"
-              colorPalette="red"
+              colorPalette={accentColor}
               onClick={() => {
                 setIsCreating(false)
                 setNewWorkspaceName('')
