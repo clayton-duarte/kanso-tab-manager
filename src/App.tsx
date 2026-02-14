@@ -1,42 +1,33 @@
 import { useEffect } from 'react'
-import { Box, Spinner, Flex } from '@chakra-ui/react'
+import { Box } from '@chakra-ui/react'
 import { useAppStore } from '@/features/store/useAppStore'
 import { DashboardLayout } from '@/features/dashboard/DashboardLayout'
 import { WelcomeScreen } from '@/features/dashboard/components/WelcomeScreen'
 
 function App() {
-  const { isAuthenticated, isLoading, init, accentColor } = useAppStore()
+  const { isAuthenticated, isInitializing, init, profiles } = useAppStore()
 
   useEffect(() => {
     init()
   }, [init])
 
-  // Show loading spinner during initialization
-  if (isLoading) {
+  // Offline-first: If we have cached data, show it immediately
+  // This prevents any flash - we either have data or we're truly new
+  if (profiles.length > 0 || isAuthenticated) {
     return (
-      <Flex
-        h="100vh"
-        w="100vw"
-        align="center"
-        justify="center"
-        bg="gray.900"
-      >
-        <Spinner size="xl" colorPalette={accentColor} />
-      </Flex>
+      <Box minH="100vh" bg="gray.900">
+        <DashboardLayout />
+      </Box>
     )
   }
 
-  // Show welcome screen if not authenticated
-  if (!isAuthenticated) {
-    return <WelcomeScreen />
+  // Still initializing - show blank background (no spinner, no welcome flash)
+  if (isInitializing) {
+    return <Box h="100vh" w="100vw" bg="gray.900" />
   }
 
-  // Show main dashboard
-  return (
-    <Box minH="100vh" bg="gray.900">
-      <DashboardLayout />
-    </Box>
-  )
+  // Not authenticated and done loading - show welcome screen
+  return <WelcomeScreen />
 }
 
 export default App

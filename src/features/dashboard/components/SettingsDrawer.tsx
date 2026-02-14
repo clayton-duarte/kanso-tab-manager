@@ -53,7 +53,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
     clearCredentials,
     deleteGistAndLogout,
     setAccentColor,
-    isLoading,
+    isSyncing,
   } = useAppStore()
 
   const [editingPat, setEditingPat] = useState(false)
@@ -199,7 +199,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                           size="sm"
                           colorPalette={accentColor}
                           onClick={handleSavePat}
-                          loading={isLoading}
+                          loading={isSyncing}
                           flex={1}
                         >
                           <IconCheck size={16} />

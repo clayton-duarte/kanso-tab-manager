@@ -19,11 +19,13 @@ import { Sidebar } from './components/Sidebar'
 import { LinkCard } from './components/LinkCard'
 import { DropZone } from './components/DropZone'
 import { SettingsDrawer } from './components/SettingsDrawer'
-import { useAppStore } from '@/features/store/useAppStore'
+import { SyncStatusBanner } from './components/SyncStatusBanner'
+import { useAppStore, selectActiveWorkspaceData } from '@/features/store/useAppStore'
 
 export function DashboardLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const { activeWorkspaceData, reorderLinks } = useAppStore()
+  const activeWorkspaceData = useAppStore(selectActiveWorkspaceData)
+  const reorderLinks = useAppStore(state => state.reorderLinks)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -55,13 +57,18 @@ export function DashboardLayout() {
   return (
     <Grid
       templateColumns="auto 1fr"
-      templateRows="auto 1fr"
+      templateRows="auto auto 1fr"
       h="100vh"
       bg="gray.900"
     >
       {/* Top Bar - spans full width */}
       <GridItem colSpan={2}>
         <TopBar onOpenSettings={() => setSettingsOpen(true)} />
+      </GridItem>
+
+      {/* Sync Status Banner - non-blocking warning for sync errors */}
+      <GridItem colSpan={2}>
+        <SyncStatusBanner />
       </GridItem>
 
       {/* Sidebar */}

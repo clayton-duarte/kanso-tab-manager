@@ -16,7 +16,7 @@ import { useAppStore } from '@/features/store/useAppStore'
 type SetupMode = 'new' | 'existing'
 
 export function WelcomeScreen() {
-  const { setCredentials, setupWithNewGist, isLoading, error, accentColor } = useAppStore()
+  const { setCredentials, setupWithNewGist, isSyncing, syncError, accentColor } = useAppStore()
   const [pat, setPat] = useState('')
   const [gistId, setGistId] = useState('')
   const [mode, setMode] = useState<SetupMode>('new')
@@ -72,10 +72,10 @@ export function WelcomeScreen() {
           </Text>
         </VStack>
 
-        {(error || validationError) && (
+        {(syncError || validationError) && (
           <Alert.Root status="error" borderRadius="md">
             <Alert.Indicator />
-            <Alert.Title>{validationError || error}</Alert.Title>
+            <Alert.Title>{validationError || syncError}</Alert.Title>
           </Alert.Root>
         )}
 
@@ -165,7 +165,7 @@ export function WelcomeScreen() {
             type="submit"
             colorPalette={accentColor}
             w="100%"
-            loading={isLoading}
+            loading={isSyncing}
             loadingText={mode === 'new' ? 'Creating...' : 'Connecting...'}
           >
             <IconBrandGithub size={18} />

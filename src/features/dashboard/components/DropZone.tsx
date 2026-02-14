@@ -2,7 +2,7 @@ import { Box, Text, Flex } from '@chakra-ui/react'
 import { IconLink } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { parseDroppedData } from '@/shared/utils/urlParser'
-import { useAppStore } from '@/features/store/useAppStore'
+import { useAppStore, selectActiveWorkspaceData } from '@/features/store/useAppStore'
 
 interface DropZoneProps {
   children: ReactNode
@@ -10,7 +10,9 @@ interface DropZoneProps {
 
 export function DropZone({ children }: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const { addLink, activeWorkspaceData, accentColor } = useAppStore()
+  const addLink = useAppStore(state => state.addLink)
+  const activeWorkspaceData = useAppStore(selectActiveWorkspaceData)
+  const accentColor = useAppStore(state => state.accentColor)
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
