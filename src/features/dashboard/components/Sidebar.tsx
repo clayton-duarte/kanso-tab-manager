@@ -166,9 +166,12 @@ export function Sidebar() {
 
   const handleCreateWorkspace = async () => {
     if (newWorkspaceName.trim()) {
-      await createWorkspace(newWorkspaceName.trim());
+      const name = newWorkspaceName.trim();
+      // Reset UI immediately (optimistic)
       setNewWorkspaceName('');
       setIsCreating(false);
+      // Sync in background
+      await createWorkspace(name);
     }
   };
 
