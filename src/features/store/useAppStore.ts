@@ -652,9 +652,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeWorkspaceId: targetWorkspace?.id || null,
     });
 
-    // Load workspace data if not cached
-    if (targetWorkspace && !workspaceDataCache[targetWorkspace.id]) {
-      get().switchWorkspace(targetWorkspace.id);
+    // Switch to workspace (this handles tab switching)
+    if (targetWorkspace) {
+      // Switch tabs to match workspace
+      const cachedData = workspaceDataCache[targetWorkspace.id];
+      if (cachedData) {
+        switchWorkspaceTabs(
+          cachedData.links.map((link) => ({
+            url: link.url,
+            title: link.title,
+            pinned: link.pinned,
+          }))
+        );
+      } else {
+        // Load workspace data if not cached (this will also switch tabs)
+        get().switchWorkspace(targetWorkspace.id);
+      }
+    } else {
+      // No workspace - close all tabs
+      switchWorkspaceTabs([]);
     }
   },
 
