@@ -2,7 +2,7 @@
  * Creates a debounced function that delays invoking func until after wait
  * milliseconds have elapsed since the last time the debounced function was invoked.
  */
-export function debounce<T extends (...args: Parameters<T>) => void>(
+export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
   wait: number
 ): {
@@ -22,7 +22,7 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
     
     timeoutId = setTimeout(() => {
       if (lastArgs) {
-        func(...lastArgs)
+        func(...(lastArgs as Parameters<T>))
         lastArgs = null
       }
       timeoutId = null
@@ -43,7 +43,7 @@ export function debounce<T extends (...args: Parameters<T>) => void>(
       timeoutId = null
     }
     if (lastArgs) {
-      func(...lastArgs)
+      func(...(lastArgs as Parameters<T>))
       lastArgs = null
     }
   }

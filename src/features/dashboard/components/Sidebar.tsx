@@ -114,7 +114,7 @@ export function Sidebar() {
             onMouseLeave={() => setHoveredWorkspaceId(null)}
           >
             <IconFolder size={16} />
-            <Text fontSize="sm" flex={1} noOfLines={1}>
+            <Text fontSize="sm" flex={1} lineClamp={1}>
               {workspace.name}
             </Text>
             {hoveredWorkspaceId === workspace.id && (

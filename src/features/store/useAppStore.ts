@@ -99,7 +99,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
 
       // Load credentials from chrome.storage.local
-      const { pat, gistId } = await chrome.storage.local.get(['pat', 'gistId'])
+      const result = await chrome.storage.local.get(['pat', 'gistId']) as { pat?: string; gistId?: string }
+      const { pat, gistId } = result
 
       if (!pat || !gistId) {
         set({

@@ -4,7 +4,6 @@ import {
   Text,
   IconButton,
   Image,
-  Link,
 } from '@chakra-ui/react'
 import {
   IconPin,
@@ -157,20 +156,9 @@ export function LinkCard({ link }: LinkCardProps) {
               alt=""
               boxSize="24px"
               borderRadius="sm"
-              fallback={
-                <Box
-                  boxSize="24px"
-                  borderRadius="sm"
-                  bg="gray.600"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  <Text fontSize="xs" color="gray.400">
-                    {link.title.charAt(0).toUpperCase()}
-                  </Text>
-                </Box>
-              }
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
             />
           ) : (
             <Box
@@ -190,23 +178,22 @@ export function LinkCard({ link }: LinkCardProps) {
             fontSize="sm"
             fontWeight="medium"
             color="white"
-            noOfLines={1}
+            lineClamp={1}
             flex={1}
           >
             {link.title}
           </Text>
         </Flex>
 
-        <Link
-          href={link.url}
+        <Text
+          as="span"
           fontSize="xs"
           color="gray.500"
-          noOfLines={1}
-          onClick={(e) => e.stopPropagation()}
+          lineClamp={1}
           _hover={{ color: 'purple.400' }}
         >
           {domain}
-        </Link>
+        </Text>
       </Flex>
     </Box>
   )
