@@ -53,11 +53,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 /**
  * Fetch a Gist by ID
+ * Adds cache-busting to avoid stale data
  */
 export async function fetchGist(gistId: string, pat: string): Promise<GistResponse> {
-  const response = await fetch(`${GITHUB_API_BASE}/gists/${gistId}`, {
+  const response = await fetch(`${GITHUB_API_BASE}/gists/${gistId}?cb=${Date.now()}`, {
     method: 'GET',
     headers: createHeaders(pat),
+    cache: 'no-store',
   })
 
   return handleResponse<GistResponse>(response)
@@ -125,14 +127,18 @@ export async function deleteGistFile(
 
 /**
  * Fetch the content of a specific file in a Gist
+ * Adds cache-busting to avoid stale data from GitHub's CDN
  */
 export async function fetchGistFileContent(
   rawUrl: string,
   pat: string
 ): Promise<string> {
-  const response = await fetch(rawUrl, {
+  // Add cache-busting parameter to avoid stale data
+  const cacheBustedUrl = `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`
+  const response = await fetch(cacheBustedUrl, {
     method: 'GET',
     headers: createHeaders(pat),
+    cache: 'no-store',
   })
 
   if (!response.ok) {
@@ -284,16 +290,35 @@ export async function savePreferences(gistId: string, preferences: Preferences, 
 export async function fetchProfileSettings(gistId: string, profileName: string, pat: string): Promise<ProfileSettings> {
   try {
     const filename = generateProfileSettingsFilename(profileName)
+    console.log(`Looking for profile settings file: "${filename}" for profile "${profileName}"`)
     const gist = await fetchGist(gistId, pat)
+    console.log('Files in gist:', Object.keys(gist.files))
     const settingsFile = gist.files[filename]
     
-    if (!settingsFile?.raw_url) {
+    if (!settingsFile) {
+      console.log(`Profile settings file not found: "${filename}", available files:`, Object.keys(gist.files))
       return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
     }
     
-    const content = await fetchGistFileContent(settingsFile.raw_url, pat)
-    return JSON.parse(content) as ProfileSettings
-  } catch {
+    // Use inline content if available (more reliable than raw_url which can be cached)
+    let content: string
+    if (settingsFile.content && !settingsFile.truncated) {
+      console.log(`Using inline content for "${filename}"`)
+      content = settingsFile.content
+    } else if (settingsFile.raw_url) {
+      console.log(`Fetching from raw_url for "${filename}":`, settingsFile.raw_url)
+      content = await fetchGistFileContent(settingsFile.raw_url, pat)
+    } else {
+      console.log(`No content available for "${filename}"`)
+      return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
+    }
+    
+    console.log(`Raw content from Gist:`, content)
+    const parsed = JSON.parse(content) as ProfileSettings
+    console.log(`Parsed profile settings for "${profileName}":`, parsed)
+    return parsed
+  } catch (error) {
+    console.error(`Error fetching profile settings for "${profileName}":`, error)
     // If settings file doesn't exist, return defaults
     return { name: profileName, ...DEFAULT_PROFILE_SETTINGS }
   }
@@ -309,5 +334,7 @@ export async function saveProfileSettings(
   pat: string
 ): Promise<void> {
   const filename = generateProfileSettingsFilename(profileName)
+  console.log(`Saving profile settings to "${filename}":`, settings)
   await updateGistFile(gistId, filename, JSON.stringify(settings, null, 2), pat)
+  console.log(`Successfully saved profile settings for "${profileName}"`)
 }

@@ -121,6 +121,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const profileSettingsResults = await Promise.all(
         Array.from(profileSet).map(async (name) => {
           const settings = await fetchProfileSettings(gistId, name, pat)
+          console.log(`Loaded profile settings for "${name}":`, settings)
           return { name, settings }
         })
       )
@@ -967,8 +968,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
           createdAt: activeProfile.createdAt,
         }
         await saveProfileSettings(gistId, activeProfile.name, profileSettings, pat)
-      } catch {
-        // Ignore save errors for preferences
+        console.log('Saved profile settings:', profileSettings)
+      } catch (error) {
+        console.error('Failed to save profile settings:', error)
       }
     }
   },
