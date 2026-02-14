@@ -679,6 +679,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         }, pat)
       } catch (error) {
         set({ syncError: 'Failed to sync new profile' })
+        console.error(error instanceof Error ? error.message : error);
       }
     }
 

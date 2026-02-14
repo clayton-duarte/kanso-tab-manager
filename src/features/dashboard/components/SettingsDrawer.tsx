@@ -110,7 +110,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                 <IconButton
                   aria-label="Close settings"
                   size="sm"
-                  variant="outline"
+            variant="ghost"
                   colorPalette={accentColor}
                 >
                   <IconX size={18} />
