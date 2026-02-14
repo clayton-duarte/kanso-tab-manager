@@ -1,5 +1,5 @@
-import type { GistResponse, GistUpdatePayload, WorkspaceData, Preferences, ProfileSettings } from './types'
-import { PREFERENCES_FILENAME, DEFAULT_PREFERENCES, DEFAULT_PROFILE_SETTINGS } from './types'
+import type { GistResponse, GistUpdatePayload, WorkspaceData, ProfileSettings } from './types'
+import { DEFAULT_PROFILE_SETTINGS } from './types'
 import { generateProfileSettingsFilename } from '@/shared/utils/urlParser'
 
 const GITHUB_API_BASE = 'https://api.github.com'
@@ -282,37 +282,7 @@ Your workspaces and links will sync automatically.
 
   await updateGistFile(gist.id, 'README.md', readmeContent, pat)
   
-  // Create default preferences file
-  await updateGistFile(gist.id, PREFERENCES_FILENAME, JSON.stringify(DEFAULT_PREFERENCES, null, 2), pat)
-  
   return gist.id
-}
-
-/**
- * Fetch preferences from Gist
- */
-export async function fetchPreferences(gistId: string, pat: string): Promise<Preferences> {
-  try {
-    const gist = await fetchGist(gistId, pat)
-    const prefsFile = gist.files[PREFERENCES_FILENAME]
-    
-    if (!prefsFile?.raw_url) {
-      return DEFAULT_PREFERENCES
-    }
-    
-    const content = await fetchGistFileContent(prefsFile.raw_url, pat)
-    return JSON.parse(content) as Preferences
-  } catch {
-    // If preferences file doesn't exist, return defaults
-    return DEFAULT_PREFERENCES
-  }
-}
-
-/**
- * Save preferences to Gist
- */
-export async function savePreferences(gistId: string, preferences: Preferences, pat: string): Promise<void> {
-  await updateGistFile(gistId, PREFERENCES_FILENAME, JSON.stringify(preferences, null, 2), pat)
 }
 
 /**
