@@ -23,7 +23,7 @@ interface LinkCardProps {
 }
 
 export function LinkCard({ link }: LinkCardProps) {
-  const { removeLink, togglePinLink } = useAppStore()
+  const { removeLink, togglePinLink, accentColor } = useAppStore()
   const [isHovered, setIsHovered] = useState(false)
 
   const {
@@ -71,13 +71,13 @@ export function LinkCard({ link }: LinkCardProps) {
       bg="gray.800"
       borderRadius="lg"
       borderWidth="1px"
-      borderColor={link.pinned ? 'purple.500' : 'gray.700'}
+      borderColor={link.pinned ? `${accentColor}.500` : 'gray.700'}
       p={4}
       cursor="pointer"
       position="relative"
       transition="all 0.2s"
       _hover={{
-        borderColor: 'purple.400',
+        borderColor: `${accentColor}.400`,
         transform: 'translateY(-2px)',
         shadow: 'lg',
       }}
@@ -108,9 +108,9 @@ export function LinkCard({ link }: LinkCardProps) {
             aria-label={link.pinned ? 'Unpin' : 'Pin'}
             size="xs"
             variant="ghost"
-            color={link.pinned ? 'purple.400' : 'gray.500'}
+            color={link.pinned ? `${accentColor}.400` : 'gray.500'}
             onClick={handleTogglePin}
-            _hover={{ color: 'purple.400' }}
+            _hover={{ color: `${accentColor}.400` }}
           >
             {link.pinned ? <IconPinnedFilled size={14} /> : <IconPin size={14} />}
           </IconButton>
@@ -142,7 +142,7 @@ export function LinkCard({ link }: LinkCardProps) {
 
       {/* Pinned indicator */}
       {link.pinned && !isHovered && (
-        <Box position="absolute" top={2} right={2} color="purple.400">
+        <Box position="absolute" top={2} right={2} color={`${accentColor}.400`}>
           <IconPinnedFilled size={14} />
         </Box>
       )}
@@ -190,7 +190,7 @@ export function LinkCard({ link }: LinkCardProps) {
           fontSize="xs"
           color="gray.500"
           lineClamp={1}
-          _hover={{ color: 'purple.400' }}
+          _hover={{ color: `${accentColor}.400` }}
         >
           {domain}
         </Text>

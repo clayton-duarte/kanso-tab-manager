@@ -21,7 +21,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ onOpenSettings }: TopBarProps) {
-  const { profiles, activeProfileId, switchProfile, createProfile, isSaving } = useAppStore()
+  const { profiles, activeProfileId, switchProfile, createProfile, isSaving, accentColor } = useAppStore()
   const [isCreating, setIsCreating] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
 
@@ -56,7 +56,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
           <Text 
             fontSize="lg" 
             fontWeight="bold" 
-            color="purple.400"
+            color={`${accentColor}.400`}
             letterSpacing="tight"
           >
             Kanso
@@ -78,11 +78,11 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                   fontSize="sm"
                   color="gray.400"
                   _selected={{ 
-                    color: 'white', 
-                    borderBottomColor: 'purple.500',
+                    color: `${accentColor}.300`, 
+                    borderBottomColor: `${accentColor}.500`,
                     borderBottomWidth: '2px',
                   }}
-                  _hover={{ color: 'white' }}
+                  _hover={{ color: `${accentColor}.400` }}
                 >
                   {profile.name}
                 </Tabs.Trigger>
@@ -100,7 +100,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     width="120px"
                     bg="gray.800"
                     borderColor="gray.600"
-                    _focus={{ borderColor: 'purple.500' }}
+                    _focus={{ borderColor: `${accentColor}.500` }}
                   />
                   <IconButton
                     aria-label="Confirm"
@@ -132,7 +132,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                   color="gray.500"
                   ml={2}
                   onClick={() => setIsCreating(true)}
-                  _hover={{ color: 'white', bg: 'gray.700' }}
+                  _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
                 >
                   <IconPlus size={16} />
                 </IconButton>
@@ -153,7 +153,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             size="sm"
             color="gray.400"
             onClick={onOpenSettings}
-            _hover={{ color: 'white', bg: 'gray.700' }}
+            _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
           >
             <IconSettings size={20} />
           </IconButton>

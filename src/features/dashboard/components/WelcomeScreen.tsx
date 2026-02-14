@@ -16,7 +16,7 @@ import { useAppStore } from '@/features/store/useAppStore'
 type SetupMode = 'new' | 'existing'
 
 export function WelcomeScreen() {
-  const { setCredentials, setupWithNewGist, isLoading, error } = useAppStore()
+  const { setCredentials, setupWithNewGist, isLoading, error, accentColor } = useAppStore()
   const [pat, setPat] = useState('')
   const [gistId, setGistId] = useState('')
   const [mode, setMode] = useState<SetupMode>('new')
@@ -92,7 +92,7 @@ export function WelcomeScreen() {
               fontSize="sm"
               color="gray.400"
               borderRadius="md"
-              _selected={{ bg: 'gray.700', color: 'white' }}
+              _selected={{ bg: `${accentColor}.900/50`, color: `${accentColor}.300` }}
             >
               <IconSparkles size={16} />
               New Setup
@@ -103,7 +103,7 @@ export function WelcomeScreen() {
               fontSize="sm"
               color="gray.400"
               borderRadius="md"
-              _selected={{ bg: 'gray.700', color: 'white' }}
+              _selected={{ bg: `${accentColor}.900/50`, color: `${accentColor}.300` }}
             >
               <IconLink size={16} />
               Restore / Connect
@@ -129,7 +129,7 @@ export function WelcomeScreen() {
                 bg="gray.700"
                 borderColor="gray.600"
                 _hover={{ borderColor: 'gray.500' }}
-                _focus={{ borderColor: 'purple.500' }}
+                _focus={{ borderColor: `${accentColor}.500` }}
               />
             </Box>
             <Text fontSize="xs" color="gray.500" mt={1}>
@@ -137,7 +137,7 @@ export function WelcomeScreen() {
               <Link
                 href="https://github.com/settings/personal-access-tokens/new"
                 target="_blank"
-                color="purple.400"
+                color={`${accentColor}.400`}
               >
                 Create one here
               </Link>
@@ -161,7 +161,7 @@ export function WelcomeScreen() {
                   bg="gray.700"
                   borderColor="gray.600"
                   _hover={{ borderColor: 'gray.500' }}
-                  _focus={{ borderColor: 'purple.500' }}
+                  _focus={{ borderColor: `${accentColor}.500` }}
                 />
               </Box>
               <Text fontSize="xs" color="gray.500" mt={1}>
@@ -172,7 +172,7 @@ export function WelcomeScreen() {
 
           <Button
             type="submit"
-            colorPalette="purple"
+            colorPalette={accentColor}
             w="100%"
             loading={isLoading}
             loadingText={mode === 'new' ? 'Creating...' : 'Connecting...'}

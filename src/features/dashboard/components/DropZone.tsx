@@ -10,7 +10,7 @@ interface DropZoneProps {
 
 export function DropZone({ children }: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const { addLink, activeWorkspaceData } = useAppStore()
+  const { addLink, activeWorkspaceData, accentColor } = useAppStore()
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -60,11 +60,11 @@ export function DropZone({ children }: DropZoneProps) {
         <Flex
           position="absolute"
           inset={4}
-          bg="purple.900/30"
+          bg={`${accentColor}.900/30`}
           borderRadius="xl"
           borderWidth="2px"
           borderStyle="dashed"
-          borderColor="purple.500"
+          borderColor={`${accentColor}.500`}
           zIndex={10}
           align="center"
           justify="center"
@@ -72,8 +72,8 @@ export function DropZone({ children }: DropZoneProps) {
           gap={2}
           pointerEvents="none"
         >
-          <IconLink size={32} color="var(--chakra-colors-purple-400)" />
-          <Text color="purple.400" fontWeight="medium">
+          <IconLink size={32} color={`var(--chakra-colors-${accentColor}-400)`} />
+          <Text color={`${accentColor}.400`} fontWeight="medium">
             Drop link here
           </Text>
         </Flex>

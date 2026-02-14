@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/features/dashboard/DashboardLayout'
 import { WelcomeScreen } from '@/features/dashboard/components/WelcomeScreen'
 
 function App() {
-  const { isAuthenticated, isLoading, init } = useAppStore()
+  const { isAuthenticated, isLoading, init, accentColor } = useAppStore()
 
   useEffect(() => {
     init()
@@ -21,7 +21,7 @@ function App() {
         justify="center"
         bg="gray.900"
       >
-        <Spinner size="xl" color="purple.500" />
+        <Spinner size="xl" color={`${accentColor}.500`} />
       </Flex>
     )
   }

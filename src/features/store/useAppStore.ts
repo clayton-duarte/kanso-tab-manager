@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
-import type { AppStore } from './types'
+import type { AppStore, AccentColor } from './types'
 import type { LinkItem, Profile, WorkspaceData, WorkspaceMeta } from '../github/types'
 import { debounce } from '@/shared/utils/debounce'
 import { generateWorkspaceFilename, parseWorkspaceFilename } from '@/shared/utils/urlParser'
@@ -14,6 +14,8 @@ import {
   validatePat,
   validateGist,
   createNewGist,
+  fetchPreferences,
+  savePreferences,
 } from '../github/api'
 
 // Cache for workspace data (to avoid refetching)
@@ -34,6 +36,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isLoading: false,
   error: null,
   isSaving: false,
+  accentColor: 'gray',
 
   // Data state
   profiles: [],
@@ -45,9 +48,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
-      // Load credentials from chrome.storage.local
-      const result = await chrome.storage.local.get(['pat', 'gistId']) as { pat?: string; gistId?: string }
-      const { pat, gistId } = result
+      // Load credentials and preferences from chrome.storage.local
+      const result = await chrome.storage.local.get(['pat', 'gistId', 'accentColor']) as { pat?: string; gistId?: string; accentColor?: AccentColor }
+      const { pat, gistId, accentColor } = result
+      
+      // Set accent color if stored
+      if (accentColor) {
+        set({ accentColor })
+      }
 
       if (!pat || !gistId) {
         set({
@@ -121,6 +129,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: activeWorkspace?.id || null,
         isLoading: false,
       })
+
+      // Load preferences from Gist
+      try {
+        const prefs = await fetchPreferences(gistId, pat)
+        set({ accentColor: prefs.accentColor })
+        // Also save to chrome.storage.local for faster access on next load
+        await chrome.storage.local.set({ accentColor: prefs.accentColor })
+      } catch {
+        // Ignore preference loading errors
+      }
 
       // Load the active workspace data if one exists
       if (activeWorkspace) {
@@ -705,4 +723,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Clear error
   clearError: () => set({ error: null }),
+
+  // Set accent color
+  setAccentColor: async (accentColor: AccentColor) => {
+    const { pat, gistId } = get()
+    set({ accentColor })
+    
+    // Save to chrome.storage.local for faster access
+    await chrome.storage.local.set({ accentColor })
+    
+    // Save to Gist for cross-device sync
+    if (pat && gistId) {
+      try {
+        await savePreferences(gistId, { accentColor }, pat)
+      } catch {
+        // Ignore save errors for preferences
+      }
+    }
+  },
 }))

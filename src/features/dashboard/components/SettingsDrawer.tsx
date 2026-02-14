@@ -11,6 +11,7 @@ import {
   CloseButton,
   Link,
   Dialog,
+  SimpleGrid,
 } from '@chakra-ui/react'
 import {
   IconLogout,
@@ -18,9 +19,24 @@ import {
   IconExternalLink,
   IconTrash,
   IconCheck,
+  IconPalette,
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useAppStore } from '@/features/store/useAppStore'
+import type { AccentColor } from '@/features/store/types'
+
+const ACCENT_COLORS: { value: AccentColor; label: string }[] = [
+  { value: 'gray', label: 'Gray' },
+  { value: 'red', label: 'Red' },
+  { value: 'orange', label: 'Orange' },
+  { value: 'yellow', label: 'Yellow' },
+  { value: 'green', label: 'Green' },
+  { value: 'teal', label: 'Teal' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'cyan', label: 'Cyan' },
+  { value: 'purple', label: 'Purple' },
+  { value: 'pink', label: 'Pink' },
+]
 
 interface SettingsDrawerProps {
   open: boolean
@@ -31,9 +47,11 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
   const {
     pat,
     gistId,
+    accentColor,
     setCredentials,
     clearCredentials,
     deleteGistAndLogout,
+    setAccentColor,
     isLoading,
   } = useAppStore()
 
@@ -111,9 +129,9 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         href={gistUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        color="purple.300"
+                        color={`${accentColor}.300`}
                         fontSize="sm"
-                        _hover={{ color: 'purple.200', textDecoration: 'underline' }}
+                        _hover={{ color: `${accentColor}.200`, textDecoration: 'underline' }}
                         display="flex"
                         alignItems="center"
                         gap={2}
@@ -138,8 +156,8 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       <Button
                         variant="ghost"
                         size="xs"
-                        color="purple.300"
-                        _hover={{ color: 'purple.200' }}
+                        color={`${accentColor}.300`}
+                        _hover={{ color: `${accentColor}.200` }}
                         onClick={() => {
                           setNewPat(pat || '')
                           setEditingPat(true)
@@ -171,13 +189,13 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                           bg="gray.700"
                           borderColor="gray.600"
                           _hover={{ borderColor: 'gray.500' }}
-                          _focus={{ borderColor: 'purple.500' }}
+                          _focus={{ borderColor: `${accentColor}.500` }}
                         />
                       </Box>
                       <HStack gap={2}>
                         <Button
                           size="sm"
-                          colorPalette="purple"
+                          colorPalette={accentColor}
                           onClick={handleSavePat}
                           loading={isLoading}
                           flex={1}
@@ -210,6 +228,35 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       </Text>
                     </Box>
                   )}
+                </Box>
+
+                {/* Accent Color Section */}
+                <Box>
+                  <HStack mb={2}>
+                    <IconPalette size={16} color="#9CA3AF" />
+                    <Text fontSize="sm" color="gray.400">
+                      Accent Color
+                    </Text>
+                  </HStack>
+                  <SimpleGrid columns={5} gap={2}>
+                    {ACCENT_COLORS.map(({ value, label }) => (
+                      <Box
+                        key={value}
+                        as="button"
+                        title={label}
+                        w={8}
+                        h={8}
+                        borderRadius="md"
+                        bg={`${value}.500`}
+                        borderWidth="2px"
+                        borderColor={accentColor === value ? 'white' : 'transparent'}
+                        _hover={{ transform: 'scale(1.1)' }}
+                        transition="all 0.15s"
+                        onClick={() => setAccentColor(value)}
+                        cursor="pointer"
+                      />
+                    ))}
+                  </SimpleGrid>
                 </Box>
 
                 {/* Divider */}

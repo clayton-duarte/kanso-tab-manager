@@ -26,6 +26,7 @@ export function Sidebar() {
     switchWorkspace,
     createWorkspace,
     deleteWorkspace,
+    accentColor,
   } = useAppStore()
 
   const [isCreating, setIsCreating] = useState(false)
@@ -90,7 +91,7 @@ export function Sidebar() {
           variant="ghost"
           color="gray.500"
           onClick={() => setIsCreating(true)}
-          _hover={{ color: 'white', bg: 'gray.700' }}
+          _hover={{ color: `${accentColor}.400`, bg: 'gray.700' }}
         >
           <IconPlus size={14} />
         </IconButton>
@@ -106,9 +107,11 @@ export function Sidebar() {
             py={2}
             borderRadius="md"
             cursor="pointer"
-            bg={activeWorkspaceId === workspace.id ? 'gray.700' : 'transparent'}
-            color={activeWorkspaceId === workspace.id ? 'white' : 'gray.400'}
-            _hover={{ bg: 'gray.700', color: 'white' }}
+            bg={activeWorkspaceId === workspace.id ? `${accentColor}.900/40` : 'transparent'}
+            color={activeWorkspaceId === workspace.id ? `${accentColor}.300` : 'gray.400'}
+            borderLeftWidth="2px"
+            borderLeftColor={activeWorkspaceId === workspace.id ? `${accentColor}.500` : 'transparent'}
+            _hover={{ bg: `${accentColor}.900/30`, color: `${accentColor}.300` }}
             onClick={() => switchWorkspace(workspace.id)}
             onMouseEnter={() => setHoveredWorkspaceId(workspace.id)}
             onMouseLeave={() => setHoveredWorkspaceId(null)}
@@ -143,7 +146,7 @@ export function Sidebar() {
               autoFocus
               bg="gray.800"
               borderColor="gray.600"
-              _focus={{ borderColor: 'purple.500' }}
+              _focus={{ borderColor: `${accentColor}.500` }}
             />
             <IconButton
               aria-label="Confirm"
@@ -174,7 +177,7 @@ export function Sidebar() {
             No workspaces yet.{' '}
             <Text
               as="span"
-              color="purple.400"
+              color={`${accentColor}.400`}
               cursor="pointer"
               onClick={() => setIsCreating(true)}
             >

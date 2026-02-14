@@ -10,6 +10,11 @@ export interface AuthState {
 }
 
 /**
+ * Available accent colors from Chakra UI theme
+ */
+export type AccentColor = 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'cyan' | 'purple' | 'pink'
+
+/**
  * UI state
  */
 export interface UIState {
@@ -18,6 +23,7 @@ export interface UIState {
   isLoading: boolean
   error: string | null
   isSaving: boolean
+  accentColor: AccentColor
 }
 
 /**
@@ -73,6 +79,9 @@ export interface AppActions {
   // Error handling
   setError: (error: string | null) => void
   clearError: () => void
+  
+  // UI Preferences
+  setAccentColor: (color: AccentColor) => void
 }
 
 /**

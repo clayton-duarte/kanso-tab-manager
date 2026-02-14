@@ -76,3 +76,16 @@ export interface GistResponse {
 export interface GistUpdatePayload {
   files: Record<string, { content: string } | null>
 }
+
+/**
+ * User preferences stored in _preferences.json
+ */
+export interface Preferences {
+  accentColor: 'gray' | 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'cyan' | 'purple' | 'pink'
+}
+
+export const PREFERENCES_FILENAME = '_preferences.json'
+
+export const DEFAULT_PREFERENCES: Preferences = {
+  accentColor: 'gray',
+}
