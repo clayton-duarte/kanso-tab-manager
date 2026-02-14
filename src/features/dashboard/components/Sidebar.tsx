@@ -13,6 +13,7 @@ import {
   IconCheck,
   IconX,
   IconTrash,
+  IconPencil,
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useAppStore } from '@/features/store/useAppStore'
@@ -26,12 +27,14 @@ export function Sidebar() {
     switchWorkspace,
     createWorkspace,
     deleteWorkspace,
+    renameWorkspace,
     accentColor,
   } = useAppStore()
 
   const [isCreating, setIsCreating] = useState(false)
   const [newWorkspaceName, setNewWorkspaceName] = useState('')
-  const [hoveredWorkspaceId, setHoveredWorkspaceId] = useState<string | null>(null)
+  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null)
+  const [editingWorkspaceName, setEditingWorkspaceName] = useState('')
 
   // Get current profile name
   const activeProfile = profiles.find(p => p.id === activeProfileId)
@@ -61,6 +64,29 @@ export function Sidebar() {
   const handleDeleteWorkspace = async (e: React.MouseEvent, workspaceId: string) => {
     e.stopPropagation()
     await deleteWorkspace(workspaceId)
+  }
+
+  const handleStartRename = (e: React.MouseEvent, workspace: { id: string; name: string }) => {
+    e.stopPropagation()
+    setEditingWorkspaceId(workspace.id)
+    setEditingWorkspaceName(workspace.name)
+  }
+
+  const handleRenameWorkspace = async () => {
+    if (editingWorkspaceId && editingWorkspaceName.trim()) {
+      await renameWorkspace(editingWorkspaceId, editingWorkspaceName.trim())
+    }
+    setEditingWorkspaceId(null)
+    setEditingWorkspaceName('')
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameWorkspace()
+    } else if (e.key === 'Escape') {
+      setEditingWorkspaceId(null)
+      setEditingWorkspaceName('')
+    }
   }
 
   return (
@@ -98,27 +124,65 @@ export function Sidebar() {
 
       <VStack gap={1} align="stretch" p={2}>
         {profileWorkspaces.map(workspace => (
-          <Flex
-            key={workspace.id}
-            align="center"
-            gap={2}
-            px={3}
-            py={2}
-            borderRadius="md"
-            cursor="pointer"
-            bg={activeWorkspaceId === workspace.id ? `${accentColor}.900/40` : 'transparent'}
-            color={activeWorkspaceId === workspace.id ? `${accentColor}.300` : 'gray.400'}
-            borderLeftWidth="2px"
-            borderLeftColor={activeWorkspaceId === workspace.id ? `${accentColor}.500` : 'transparent'}
-            onClick={() => switchWorkspace(workspace.id)}
-            onMouseEnter={() => setHoveredWorkspaceId(workspace.id)}
-            onMouseLeave={() => setHoveredWorkspaceId(null)}
-          >
-            <IconFolder size={16} />
-            <Text fontSize="sm" flex={1} lineClamp={1}>
-              {workspace.name}
-            </Text>
-            {hoveredWorkspaceId === workspace.id && (
+          editingWorkspaceId === workspace.id ? (
+            <HStack key={workspace.id} gap={1} px={2}>
+              <Input
+                size="sm"
+                value={editingWorkspaceName}
+                onChange={(e) => setEditingWorkspaceName(e.target.value)}
+                onKeyDown={handleRenameKeyDown}
+                autoFocus
+                variant="outline"
+              />
+              <IconButton
+                aria-label="Confirm"
+                size="xs"
+                colorPalette="green"
+                onClick={handleRenameWorkspace}
+              >
+                <IconCheck size={14} />
+              </IconButton>
+              <IconButton
+                aria-label="Cancel"
+                size="xs"
+                variant="ghost"
+                colorPalette="red"
+                onClick={() => {
+                  setEditingWorkspaceId(null)
+                  setEditingWorkspaceName('')
+                }}
+              >
+                <IconX size={14} />
+              </IconButton>
+            </HStack>
+          ) : (
+            <Flex
+              key={workspace.id}
+              align="center"
+              gap={2}
+              px={3}
+              py={2}
+              borderRadius="md"
+              cursor="pointer"
+              bg={activeWorkspaceId === workspace.id ? `${accentColor}.900/40` : 'transparent'}
+              color={activeWorkspaceId === workspace.id ? `${accentColor}.300` : 'gray.400'}
+              borderLeftWidth="2px"
+              borderLeftColor={activeWorkspaceId === workspace.id ? `${accentColor}.500` : 'transparent'}
+              onClick={() => switchWorkspace(workspace.id)}
+            >
+              <IconFolder size={16} />
+              <Text fontSize="sm" flex={1} lineClamp={1}>
+                {workspace.name}
+              </Text>
+              <IconButton
+                aria-label="Rename workspace"
+                size="xs"
+                variant="ghost"
+                colorPalette={accentColor}
+                onClick={(e) => handleStartRename(e, workspace)}
+              >
+                <IconPencil size={14} />
+              </IconButton>
               <IconButton
                 aria-label="Delete workspace"
                 size="xs"
@@ -128,8 +192,8 @@ export function Sidebar() {
               >
                 <IconTrash size={14} />
               </IconButton>
-            )}
-          </Flex>
+            </Flex>
+          )
         ))}
 
         {isCreating && (
