@@ -227,6 +227,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         name: 'Default',
         profile: 'Personal',
         createdAt: Date.now(),
+        updatedAt: Date.now(),
         links: [],
       }
 
@@ -448,36 +449,87 @@ export const useAppStore = create<AppStore>((set, get) => ({
         sortedWorkspaces.push(...profileWs)
       }
 
-      // Load workspace data for active workspace and cache it
-      const currentCache = get().workspaceDataCache
-      const newCache = { ...currentCache }
-
       // Find active workspace
       let activeProfile = profiles.find(p => p.id === activeProfileId) || profiles[0]
       let activeWorkspace = sortedWorkspaces.find(w => w.id === activeWorkspaceId)
         || sortedWorkspaces.find(w => w.profile === activeProfile.name)
 
-      // Load active workspace data if not cached
-      if (activeWorkspace && !newCache[activeWorkspace.id]) {
-        const file = gist.files[activeWorkspace.filename]
-        if (file) {
+      // Get current local cache for timestamp comparison
+      const localCache = get().workspaceDataCache
+
+      // Load all workspace data and resolve conflicts using updatedAt timestamps
+      const mergedCache: Record<string, WorkspaceData> = {}
+      const workspacesToPush: { filename: string; data: WorkspaceData }[] = []
+
+      await Promise.all(
+        sortedWorkspaces.map(async (ws) => {
+          const file = gist.files[ws.filename]
+          const localData = localCache[ws.id]
+          
+          if (!file) {
+            // File doesn't exist on Gist - use local if available
+            if (localData) {
+              mergedCache[ws.id] = localData
+              workspacesToPush.push({ filename: ws.filename, data: localData })
+            }
+            return
+          }
+          
           let content = file.content
           if (!content || file.truncated) {
             content = await fetchGistFileContent(file.raw_url, pat)
           }
-          const workspaceData = parseWorkspaceData(content)
-          if (workspaceData) {
-            workspaceData.id = activeWorkspace.id
-            newCache[activeWorkspace.id] = workspaceData
+          const remoteData = parseWorkspaceData(content)
+          
+          if (!remoteData) {
+            // Invalid remote data - use local if available
+            if (localData) {
+              mergedCache[ws.id] = localData
+            }
+            return
           }
-        }
+          
+          remoteData.id = ws.id
+          
+          // Compare timestamps to resolve conflicts
+          const localUpdatedAt = localData?.updatedAt || 0
+          const remoteUpdatedAt = remoteData.updatedAt || 0
+
+          if (localData && localUpdatedAt > remoteUpdatedAt) {
+            // Local is newer - use local and push to Gist
+            mergedCache[ws.id] = localData
+            workspacesToPush.push({ filename: ws.filename, data: localData })
+            // Update workspace name from local data
+            if (localData.name && localData.name !== ws.name) {
+              ws.name = localData.name
+            }
+          } else {
+            // Remote is newer (or equal) - use remote
+            mergedCache[ws.id] = remoteData
+            // Update workspace name from remote data
+            if (remoteData.name && remoteData.name !== ws.name) {
+              ws.name = remoteData.name
+            }
+          }
+        })
+      )
+
+      // Push local changes to Gist (non-blocking)
+      if (workspacesToPush.length > 0) {
+        Promise.all(
+          workspacesToPush.map(({ filename, data }) =>
+            updateGistFile(gistId, filename, serializeWorkspaceData(data), pat)
+          )
+        ).catch(() => {
+          // Silently ignore push failures - will retry on next sync
+        })
       }
 
       // Save to portable cache
       await savePortable({
         profiles,
         workspaces: sortedWorkspaces,
-        workspaceDataCache: newCache,
+        workspaceDataCache: mergedCache,
       })
 
       // Update session with current selections
@@ -489,7 +541,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({
         profiles,
         workspaces: sortedWorkspaces,
-        workspaceDataCache: newCache,
+        workspaceDataCache: mergedCache,
         activeProfileId: activeProfile.id,
         activeWorkspaceId: activeWorkspace?.id || null,
         accentColor: activeProfile.accentColor || 'gray',
@@ -583,6 +635,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         name: workspace.name,
         profile: workspace.profile,
         createdAt: Date.now(),
+        updatedAt: Date.now(),
         links: [],
       }
       set(state => ({
@@ -604,6 +657,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           name: workspace.name,
           profile: workspace.profile,
           createdAt: Date.now(),
+          updatedAt: Date.now(),
           links: [],
         }
         set(state => ({
@@ -625,11 +679,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       workspaceData.id = workspaceId
 
-      // Update cache
+      // Update cache and workspace name (may differ from filename)
       set(state => ({
         activeWorkspaceId: workspaceId,
         profileWorkspaceMap: newMap,
         workspaceDataCache: { ...state.workspaceDataCache, [workspaceId]: workspaceData },
+        workspaces: workspaceData.name && workspaceData.name !== workspace.name
+          ? state.workspaces.map(w => w.id === workspaceId ? { ...w, name: workspaceData.name } : w)
+          : state.workspaces,
       }))
 
       // Save to portable cache
@@ -677,6 +734,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       name: 'Default',
       profile: name,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       links: [],
     }
 
@@ -790,6 +848,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       name,
       profile: profile.name,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       links: [],
     }
 
@@ -883,20 +942,35 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
-  renameWorkspace: (workspaceId: string, newName: string) => {
-    const { workspaceDataCache } = get()
+  renameWorkspace: async (workspaceId: string, newName: string) => {
+    const { workspaceDataCache, profiles, workspaces, pat, gistId } = get()
+    const workspace = workspaces.find(w => w.id === workspaceId)
+    
+    if (!workspace) return
 
+    // Optimistic update with updatedAt
+    const now = Date.now()
     set(state => ({
       workspaces: state.workspaces.map(w =>
         w.id === workspaceId ? { ...w, name: newName } : w
       ),
       workspaceDataCache: workspaceDataCache[workspaceId]
-        ? { ...state.workspaceDataCache, [workspaceId]: { ...workspaceDataCache[workspaceId], name: newName } }
+        ? { ...state.workspaceDataCache, [workspaceId]: { ...workspaceDataCache[workspaceId], name: newName, updatedAt: now } }
         : state.workspaceDataCache,
     }))
 
-    // Queue save
-    get().saveWorkspace()
+    // Save to portable cache immediately
+    const { workspaces: updatedWorkspaces, workspaceDataCache: updatedCache } = get()
+    savePortable({ profiles, workspaces: updatedWorkspaces, workspaceDataCache: updatedCache })
+
+    // Sync to Gist immediately (not debounced) so other tabs see the new name
+    if (pat && gistId && updatedCache[workspaceId]) {
+      try {
+        await updateGistFile(gistId, workspace.filename, serializeWorkspaceData(updatedCache[workspaceId]), pat)
+      } catch {
+        set({ syncError: 'Failed to save rename to cloud' })
+      }
+    }
   },
 
   reorderWorkspaces: (oldIndex: number, newIndex: number) => {
@@ -942,7 +1016,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ============================================================================
 
   addLink: (url: string, title: string, favicon?: string) => {
-    const { activeWorkspaceId, workspaceDataCache } = get()
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
 
     const newLink: LinkItem = {
@@ -957,68 +1031,88 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const updatedData = {
       ...currentData,
       links: [...currentData.links, newLink],
+      updatedAt: Date.now(),
     }
 
     set(state => ({
       workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
     }))
 
+    // Save to portable cache immediately
+    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+
+    // Queue debounced sync to Gist
     get().saveWorkspace()
   },
 
   removeLink: (linkId: string) => {
-    const { activeWorkspaceId, workspaceDataCache } = get()
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
 
     const currentData = workspaceDataCache[activeWorkspaceId]
     const updatedData = {
       ...currentData,
       links: currentData.links.filter(l => l.id !== linkId),
+      updatedAt: Date.now(),
     }
 
     set(state => ({
       workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
     }))
 
+    // Save to portable cache immediately
+    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+
+    // Queue debounced sync to Gist
     get().saveWorkspace()
   },
 
   updateLink: (linkId: string, updates: Partial<LinkItem>) => {
-    const { activeWorkspaceId, workspaceDataCache } = get()
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
 
     const currentData = workspaceDataCache[activeWorkspaceId]
     const updatedData = {
       ...currentData,
       links: currentData.links.map(l => l.id === linkId ? { ...l, ...updates } : l),
+      updatedAt: Date.now(),
     }
 
     set(state => ({
       workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
     }))
 
+    // Save to portable cache immediately
+    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+
+    // Queue debounced sync to Gist
     get().saveWorkspace()
   },
 
   togglePinLink: (linkId: string) => {
-    const { activeWorkspaceId, workspaceDataCache } = get()
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
 
     const currentData = workspaceDataCache[activeWorkspaceId]
     const updatedData = {
       ...currentData,
       links: currentData.links.map(l => l.id === linkId ? { ...l, pinned: !l.pinned } : l),
+      updatedAt: Date.now(),
     }
 
     set(state => ({
       workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
     }))
 
+    // Save to portable cache immediately
+    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+
+    // Queue debounced sync to Gist
     get().saveWorkspace()
   },
 
   reorderLinks: (oldIndex: number, newIndex: number) => {
-    const { activeWorkspaceId, workspaceDataCache } = get()
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } = get()
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return
 
     const currentData = workspaceDataCache[activeWorkspaceId]
@@ -1026,12 +1120,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const [removed] = links.splice(oldIndex, 1)
     links.splice(newIndex, 0, removed)
 
-    const updatedData = { ...currentData, links }
+    const updatedData = { ...currentData, links, updatedAt: Date.now() }
 
     set(state => ({
       workspaceDataCache: { ...state.workspaceDataCache, [activeWorkspaceId]: updatedData },
     }))
 
+    // Save to portable cache immediately
+    savePortable({ profiles, workspaces, workspaceDataCache: { ...workspaceDataCache, [activeWorkspaceId]: updatedData } })
+
+    // Queue debounced sync to Gist
     get().saveWorkspace()
   },
 

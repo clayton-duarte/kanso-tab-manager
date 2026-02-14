@@ -116,7 +116,7 @@ export interface AppActions {
   /** Delete a workspace */
   deleteWorkspace: (workspaceId: string) => Promise<void>
   /** Rename a workspace */
-  renameWorkspace: (workspaceId: string, newName: string) => void
+  renameWorkspace: (workspaceId: string, newName: string) => Promise<void>
   /** Reorder workspaces within the active profile */
   reorderWorkspaces: (oldIndex: number, newIndex: number) => void
   

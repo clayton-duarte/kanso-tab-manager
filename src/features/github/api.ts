@@ -161,6 +161,11 @@ export function parseWorkspaceData(content: string): WorkspaceData | null {
       return null
     }
 
+    // Ensure updatedAt exists (backwards compatibility)
+    if (!data.updatedAt) {
+      data.updatedAt = data.createdAt || 0
+    }
+
     return data as WorkspaceData
   } catch {
     return null

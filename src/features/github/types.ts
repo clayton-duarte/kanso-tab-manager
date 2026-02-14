@@ -18,6 +18,7 @@ export interface WorkspaceData {
   name: string
   profile: string
   createdAt: number
+  updatedAt: number
   links: LinkItem[]
 }
 
