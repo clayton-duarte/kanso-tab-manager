@@ -6,15 +6,17 @@ import {
   Flex,
   Input,
   HStack,
+  Menu,
+  Portal,
 } from '@chakra-ui/react';
 import {
   IconPlus,
-  IconFolder,
   IconCheck,
   IconX,
   IconTrash,
   IconPencil,
   IconGripVertical,
+  IconChevronDown,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import {
@@ -41,8 +43,8 @@ interface SortableWorkspaceItemProps {
   isActive: boolean;
   accentColor: string;
   onSwitch: () => void;
-  onStartRename: (e: React.MouseEvent) => void;
-  onDelete: (e: React.MouseEvent) => void;
+  onStartRename: () => void;
+  onDelete: () => void;
 }
 
 function SortableWorkspaceItem({
@@ -94,28 +96,41 @@ function SortableWorkspaceItem({
       >
         <IconGripVertical size={14} />
       </Box>
-      <IconFolder size={16} />
       <Text fontSize="sm" flex={1} lineClamp={1}>
         {workspace.name}
       </Text>
-      <IconButton
-        aria-label="Rename workspace"
-        size="xs"
-        variant="ghost"
-        colorPalette={accentColor}
-        onClick={onStartRename}
-      >
-        <IconPencil size={14} />
-      </IconButton>
-      <IconButton
-        aria-label="Delete workspace"
-        size="xs"
-        variant="ghost"
-        colorPalette={accentColor}
-        onClick={onDelete}
-      >
-        <IconTrash size={14} />
-      </IconButton>
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <IconButton
+            aria-label="Workspace menu"
+            size="xs"
+            variant="ghost"
+            colorPalette={accentColor}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconChevronDown size={14} />
+          </IconButton>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content>
+              <Menu.Item value="edit" onClick={onStartRename}>
+                <IconPencil size={14} />
+                Edit
+              </Menu.Item>
+              <Menu.Item
+                value="delete"
+                color="fg.error"
+                _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                onClick={onDelete}
+              >
+                <IconTrash size={14} />
+                Delete
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
     </Flex>
   );
 }
@@ -166,19 +181,11 @@ export function Sidebar() {
     }
   };
 
-  const handleDeleteWorkspace = async (
-    e: React.MouseEvent,
-    workspaceId: string
-  ) => {
-    e.stopPropagation();
+  const handleDeleteWorkspace = async (workspaceId: string) => {
     await deleteWorkspace(workspaceId);
   };
 
-  const handleStartRename = (
-    e: React.MouseEvent,
-    workspace: { id: string; name: string }
-  ) => {
-    e.stopPropagation();
+  const handleStartRename = (workspace: { id: string; name: string }) => {
     setEditingWorkspaceId(workspace.id);
     setEditingWorkspaceName(workspace.name);
   };
@@ -313,8 +320,8 @@ export function Sidebar() {
                   isActive={activeWorkspaceId === workspace.id}
                   accentColor={accentColor}
                   onSwitch={() => switchWorkspace(workspace.id)}
-                  onStartRename={(e) => handleStartRename(e, workspace)}
-                  onDelete={(e) => handleDeleteWorkspace(e, workspace.id)}
+                  onStartRename={() => handleStartRename(workspace)}
+                  onDelete={() => handleDeleteWorkspace(workspace.id)}
                 />
               )
             )}

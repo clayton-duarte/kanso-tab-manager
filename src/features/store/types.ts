@@ -124,6 +124,8 @@ export interface AppActions {
   createProfile: (name: string) => Promise<void>;
   /** Delete a profile */
   deleteProfile: (profileId: string) => Promise<void>;
+  /** Rename a profile */
+  renameProfile: (profileId: string, newName: string) => Promise<void>;
   /** Reorder profiles */
   reorderProfiles: (oldIndex: number, newIndex: number) => void;
 

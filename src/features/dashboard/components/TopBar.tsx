@@ -7,6 +7,8 @@ import {
   Input,
   HStack,
   ProgressCircle,
+  Menu,
+  Portal,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -14,6 +16,9 @@ import {
   IconCheck,
   IconX,
   IconGripVertical,
+  IconChevronDown,
+  IconPencil,
+  IconTrash,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import {
@@ -39,12 +44,16 @@ interface SortableProfileTabProps {
   profile: Profile;
   isActive: boolean;
   accentColor: string;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 function SortableProfileTab({
   profile,
   isActive,
   accentColor,
+  onEdit,
+  onDelete,
 }: SortableProfileTabProps) {
   const {
     attributes,
@@ -66,7 +75,7 @@ function SortableProfileTab({
       ref={setNodeRef}
       style={style}
       value={profile.id}
-      px={3}
+      px={2}
       py={1.5}
       fontSize="sm"
       display="flex"
@@ -83,7 +92,41 @@ function SortableProfileTab({
       >
         <IconGripVertical size={12} />
       </Box>
-      {profile.name}
+      <Text as="span" lineClamp={1}>
+        {profile.name}
+      </Text>
+      <Menu.Root>
+        <Menu.Trigger asChild>
+          <IconButton
+            aria-label="Profile menu"
+            size="2xs"
+            variant="ghost"
+            colorPalette={accentColor}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <IconChevronDown size={12} />
+          </IconButton>
+        </Menu.Trigger>
+        <Portal>
+          <Menu.Positioner>
+            <Menu.Content>
+              <Menu.Item value="edit" onClick={onEdit}>
+                <IconPencil size={14} />
+                Edit
+              </Menu.Item>
+              <Menu.Item
+                value="delete"
+                color="fg.error"
+                _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                onClick={onDelete}
+              >
+                <IconTrash size={14} />
+                Delete
+              </Menu.Item>
+            </Menu.Content>
+          </Menu.Positioner>
+        </Portal>
+      </Menu.Root>
     </Tabs.Trigger>
   );
 }
@@ -98,6 +141,8 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     activeProfileId,
     switchProfile,
     createProfile,
+    deleteProfile,
+    renameProfile,
     reorderProfiles,
     isSaving,
     isSyncing,
@@ -105,6 +150,36 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
   } = useAppStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingProfileName, setEditingProfileName] = useState('');
+
+  const handleStartEdit = (profileId: string, currentName: string) => {
+    setEditingProfileId(profileId);
+    setEditingProfileName(currentName);
+  };
+
+  const handleRenameProfile = () => {
+    if (editingProfileId && editingProfileName.trim()) {
+      renameProfile(editingProfileId, editingProfileName.trim());
+      setEditingProfileId(null);
+      setEditingProfileName('');
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameProfile();
+    } else if (e.key === 'Escape') {
+      setEditingProfileId(null);
+      setEditingProfileName('');
+    }
+  };
+
+  const handleDeleteProfile = (profileId: string) => {
+    if (profiles.length > 1) {
+      deleteProfile(profileId);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -188,14 +263,51 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                   items={profileIds}
                   strategy={horizontalListSortingStrategy}
                 >
-                  {profiles.map((profile) => (
-                    <SortableProfileTab
-                      key={profile.id}
-                      profile={profile}
-                      isActive={profile.id === activeProfileId}
-                      accentColor={accentColor}
-                    />
-                  ))}
+                  {profiles.map((profile) =>
+                    editingProfileId === profile.id ? (
+                      <HStack key={profile.id} gap={1} px={2}>
+                        <Input
+                          size="sm"
+                          value={editingProfileName}
+                          onChange={(e) => setEditingProfileName(e.target.value)}
+                          onKeyDown={handleRenameKeyDown}
+                          autoFocus
+                          width="100px"
+                          variant="outline"
+                        />
+                        <IconButton
+                          aria-label="Confirm"
+                          size="2xs"
+                          variant="ghost"
+                          colorPalette={accentColor}
+                          onClick={handleRenameProfile}
+                        >
+                          <IconCheck size={12} />
+                        </IconButton>
+                        <IconButton
+                          aria-label="Cancel"
+                          size="2xs"
+                          variant="ghost"
+                          colorPalette={accentColor}
+                          onClick={() => {
+                            setEditingProfileId(null);
+                            setEditingProfileName('');
+                          }}
+                        >
+                          <IconX size={12} />
+                        </IconButton>
+                      </HStack>
+                    ) : (
+                      <SortableProfileTab
+                        key={profile.id}
+                        profile={profile}
+                        isActive={profile.id === activeProfileId}
+                        accentColor={accentColor}
+                        onEdit={() => handleStartEdit(profile.id, profile.name)}
+                        onDelete={() => handleDeleteProfile(profile.id)}
+                      />
+                    )
+                  )}
                 </SortableContext>
               </DndContext>
 

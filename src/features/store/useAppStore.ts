@@ -1007,6 +1007,116 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  renameProfile: async (profileId: string, newName: string) => {
+    const {
+      profiles,
+      workspaces,
+      workspaceDataCache,
+      pat,
+      gistId,
+    } = get();
+    const profile = profiles.find((p) => p.id === profileId);
+
+    if (!profile || !newName.trim() || newName === profile.name) return;
+
+    const oldName = profile.name;
+    const trimmedName = newName.trim();
+
+    // Update profile name
+    const updatedProfiles = profiles.map((p) =>
+      p.id === profileId ? { ...p, name: trimmedName } : p
+    );
+
+    // Update workspaces to reference new profile name + new filenames
+    const updatedWorkspaces = workspaces.map((w) => {
+      if (w.profile === oldName) {
+        const newFilename = generateWorkspaceFilename(trimmedName, w.name);
+        return { ...w, profile: trimmedName, filename: newFilename };
+      }
+      return w;
+    });
+
+    // Update workspace cache with new IDs
+    const newCache: Record<string, WorkspaceData> = {};
+    for (const [oldId, data] of Object.entries(workspaceDataCache)) {
+      const workspace = workspaces.find((w) => w.id === oldId);
+      if (workspace && workspace.profile === oldName) {
+        const newFilename = generateWorkspaceFilename(trimmedName, workspace.name);
+        const newId = `ws-${newFilename}`;
+        newCache[newId] = { ...data, id: newId, profile: trimmedName };
+      } else {
+        newCache[oldId] = data;
+      }
+    }
+
+    // Optimistic update
+    set({
+      profiles: updatedProfiles,
+      workspaces: updatedWorkspaces,
+      workspaceDataCache: newCache,
+    });
+
+    // Save to portable cache
+    savePortable({
+      profiles: updatedProfiles,
+      workspaces: updatedWorkspaces,
+      workspaceDataCache: newCache,
+    });
+
+    // Sync to Gist (non-blocking)
+    if (pat && gistId) {
+      try {
+        // 1. Create new profile settings file
+        const profile = updatedProfiles.find((p) => p.id === profileId);
+        if (profile) {
+          await saveProfileSettings(
+            gistId,
+            trimmedName,
+            {
+              name: trimmedName,
+              accentColor: profile.accentColor,
+              createdAt: profile.createdAt,
+              workspaceOrder: updatedWorkspaces
+                .filter((w) => w.profile === trimmedName)
+                .map((w) => w.id),
+            },
+            pat
+          );
+        }
+
+        // 2. Delete old profile settings file
+        await deleteGistFile(
+          gistId,
+          generateProfileSettingsFilename(oldName),
+          pat
+        ).catch(() => {/* ignore */});
+
+        // 3. Create new workspace files and delete old ones
+        const profileWorkspaces = workspaces.filter((w) => w.profile === oldName);
+        for (const ws of profileWorkspaces) {
+          const oldFilename = ws.filename;
+          const newFilename = generateWorkspaceFilename(trimmedName, ws.name);
+          const data = workspaceDataCache[ws.id];
+          
+          if (data) {
+            // Create new workspace file
+            await updateGistFile(
+              gistId,
+              newFilename,
+              serializeWorkspaceData({ ...data, profile: trimmedName }),
+              pat
+            );
+          }
+          
+          // Delete old workspace file
+          await deleteGistFile(gistId, oldFilename, pat).catch(() => {/* ignore */});
+        }
+      } catch {
+        // Error handling - could rollback or retry
+      }
+    }
+  },
+
   // ============================================================================
   // WORKSPACE CRUD (optimistic, sync in background)
   // ============================================================================
