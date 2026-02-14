@@ -58,7 +58,7 @@ export interface AppActions {
   switchWorkspace: (workspaceId: string) => Promise<void>
   
   // Profile CRUD
-  createProfile: (name: string) => void
+  createProfile: (name: string) => Promise<void>
   deleteProfile: (profileId: string) => Promise<void>
   
   // Workspace CRUD

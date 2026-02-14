@@ -245,15 +245,42 @@ export const useAppStore = create<AppStore>((set, get) => ({
         createdAt: Date.now(),
       }
 
+      // Create default workspace for the profile
+      const defaultWorkspaceId = nanoid()
+      const defaultWorkspaceFilename = generateWorkspaceFilename(defaultProfile.name, 'Default')
+      const defaultWorkspace: WorkspaceMeta = {
+        id: defaultWorkspaceId,
+        name: 'Default',
+        profile: defaultProfile.name,
+        filename: defaultWorkspaceFilename,
+      }
+      const defaultWorkspaceData: WorkspaceData = {
+        id: defaultWorkspaceId,
+        name: 'Default',
+        profile: defaultProfile.name,
+        createdAt: Date.now(),
+        links: [],
+      }
+
+      // Cache the workspace data
+      workspaceDataCache[defaultWorkspaceId] = defaultWorkspaceData
+
+      // Save workspace to Gist
+      try {
+        await updateGistFile(gistId, defaultWorkspaceFilename, serializeWorkspaceData(defaultWorkspaceData), pat)
+      } catch (error) {
+        console.error('Failed to create default workspace in Gist:', error)
+      }
+
       set({
         pat,
         gistId,
         isAuthenticated: true,
         profiles: [defaultProfile],
-        workspaces: [],
+        workspaces: [defaultWorkspace],
         activeProfileId: defaultProfile.id,
-        activeWorkspaceId: null,
-        activeWorkspaceData: null,
+        activeWorkspaceId: defaultWorkspaceId,
+        activeWorkspaceData: defaultWorkspaceData,
         isLoading: false,
       })
     } catch (error) {
@@ -394,19 +421,51 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   // Create profile
-  createProfile: (name: string) => {
+  createProfile: async (name: string) => {
+    const { pat, gistId } = get()
+    
     const newProfile: Profile = {
       id: nanoid(),
       name,
       createdAt: Date.now(),
     }
 
+    // Create default workspace for the new profile
+    const defaultWorkspaceId = nanoid()
+    const defaultWorkspaceFilename = generateWorkspaceFilename(name, 'Default')
+    const defaultWorkspace: WorkspaceMeta = {
+      id: defaultWorkspaceId,
+      name: 'Default',
+      profile: name,
+      filename: defaultWorkspaceFilename,
+    }
+    const defaultWorkspaceData: WorkspaceData = {
+      id: defaultWorkspaceId,
+      name: 'Default',
+      profile: name,
+      createdAt: Date.now(),
+      links: [],
+    }
+
+    // Cache the workspace data
+    workspaceDataCache[defaultWorkspaceId] = defaultWorkspaceData
+
     set(state => ({
       profiles: [...state.profiles, newProfile],
+      workspaces: [...state.workspaces, defaultWorkspace],
       activeProfileId: newProfile.id,
-      activeWorkspaceId: null,
-      activeWorkspaceData: null,
+      activeWorkspaceId: defaultWorkspaceId,
+      activeWorkspaceData: defaultWorkspaceData,
     }))
+
+    // Save workspace to Gist
+    if (pat && gistId) {
+      try {
+        await updateGistFile(gistId, defaultWorkspaceFilename, serializeWorkspaceData(defaultWorkspaceData), pat)
+      } catch (error) {
+        console.error('Failed to create default workspace in Gist:', error)
+      }
+    }
   },
 
   // Delete profile
