@@ -191,6 +191,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                           value={newPat}
                           onChange={(e) => setNewPat(e.target.value)}
                           pl={10}
+                          variant="outline"
                         />
                       </Box>
                       <HStack gap={2}>

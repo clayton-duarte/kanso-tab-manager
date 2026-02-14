@@ -92,6 +92,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                     onKeyDown={handleKeyDown}
                     autoFocus
                     width="120px"
+                    variant="outline"
                   />
                   <IconButton
                     aria-label="Confirm"

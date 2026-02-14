@@ -123,6 +123,7 @@ export function WelcomeScreen() {
                 value={pat}
                 onChange={(e) => setPat(e.target.value)}
                 pl={10}
+                variant="outline"
               />
             </Box>
             <Text fontSize="xs" color="gray.500" mt={1}>
@@ -151,6 +152,7 @@ export function WelcomeScreen() {
                   value={gistId}
                   onChange={(e) => setGistId(e.target.value)}
                   pl={10}
+                  variant="outline"
                 />
               </Box>
               <Text fontSize="xs" color="gray.500" mt={1}>

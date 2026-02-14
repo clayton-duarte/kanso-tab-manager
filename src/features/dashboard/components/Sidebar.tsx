@@ -141,6 +141,7 @@ export function Sidebar() {
               onChange={(e) => setNewWorkspaceName(e.target.value)}
               onKeyDown={handleKeyDown}
               autoFocus
+              variant="outline"
             />
             <IconButton
               aria-label="Confirm"
