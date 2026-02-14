@@ -6,6 +6,7 @@ import {
   Text,
   Input,
   HStack,
+  ProgressCircle,
 } from '@chakra-ui/react'
 import { 
   IconPlus, 
@@ -21,7 +22,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ onOpenSettings }: TopBarProps) {
-  const { profiles, activeProfileId, switchProfile, createProfile, isSaving, accentColor } = useAppStore()
+  const { profiles, activeProfileId, switchProfile, createProfile, isSaving, isSyncing, accentColor } = useAppStore()
   const [isCreating, setIsCreating] = useState(false)
   const [newProfileName, setNewProfileName] = useState('')
 
@@ -133,10 +134,13 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         </HStack>
 
         <HStack gap={2}>
-          {isSaving && (
-            <Text fontSize="xs" color="gray.500">
-              Saving...
-            </Text>
+          {(isSaving || isSyncing) && (
+            <ProgressCircle.Root value={null} size="xs" colorPalette={accentColor}>
+              <ProgressCircle.Circle>
+                <ProgressCircle.Track />
+                <ProgressCircle.Range />
+              </ProgressCircle.Circle>
+            </ProgressCircle.Root>
           )}
           <IconButton
             aria-label="Settings"
