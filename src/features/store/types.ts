@@ -124,6 +124,8 @@ export interface AppActions {
   createProfile: (name: string) => Promise<void>;
   /** Delete a profile */
   deleteProfile: (profileId: string) => Promise<void>;
+  /** Reorder profiles */
+  reorderProfiles: (oldIndex: number, newIndex: number) => void;
 
   // Workspace CRUD (optimistic, sync in background)
   /** Create a new workspace */

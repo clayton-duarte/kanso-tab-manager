@@ -8,9 +8,85 @@ import {
   HStack,
   ProgressCircle,
 } from '@chakra-ui/react';
-import { IconPlus, IconSettings, IconCheck, IconX } from '@tabler/icons-react';
+import {
+  IconPlus,
+  IconSettings,
+  IconCheck,
+  IconX,
+  IconGripVertical,
+} from '@tabler/icons-react';
 import { useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
+import type { Profile } from '@/features/github/types';
+
+interface SortableProfileTabProps {
+  profile: Profile;
+  isActive: boolean;
+  accentColor: string;
+}
+
+function SortableProfileTab({
+  profile,
+  isActive,
+  accentColor,
+}: SortableProfileTabProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: profile.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Tabs.Trigger
+      ref={setNodeRef}
+      style={style}
+      value={profile.id}
+      px={3}
+      py={1.5}
+      fontSize="sm"
+      display="flex"
+      alignItems="center"
+      gap={1}
+    >
+      <Box
+        {...attributes}
+        {...listeners}
+        cursor="grab"
+        color={isActive ? `${accentColor}.400` : 'gray.500'}
+        _hover={{ color: isActive ? `${accentColor}.300` : 'gray.400' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <IconGripVertical size={12} />
+      </Box>
+      {profile.name}
+    </Tabs.Trigger>
+  );
+}
 
 interface TopBarProps {
   onOpenSettings: () => void;
@@ -22,12 +98,39 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     activeProfileId,
     switchProfile,
     createProfile,
+    reorderProfiles,
     isSaving,
     isSyncing,
     accentColor,
   } = useAppStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = profiles.findIndex((p) => p.id === active.id);
+      const newIndex = profiles.findIndex((p) => p.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderProfiles(oldIndex, newIndex);
+      }
+    }
+  };
+
+  const profileIds = profiles.map((p) => p.id);
 
   const handleCreateProfile = () => {
     if (newProfileName.trim()) {
@@ -74,17 +177,25 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             colorPalette={accentColor}
           >
             <Tabs.List bg="transparent" borderBottomWidth={0}>
-              {profiles.map((profile) => (
-                <Tabs.Trigger
-                  key={profile.id}
-                  value={profile.id}
-                  px={3}
-                  py={1.5}
-                  fontSize="sm"
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={profileIds}
+                  strategy={horizontalListSortingStrategy}
                 >
-                  {profile.name}
-                </Tabs.Trigger>
-              ))}
+                  {profiles.map((profile) => (
+                    <SortableProfileTab
+                      key={profile.id}
+                      profile={profile}
+                      isActive={profile.id === activeProfileId}
+                      accentColor={accentColor}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
 
               {isCreating ? (
                 <HStack gap={1} ml={2}>

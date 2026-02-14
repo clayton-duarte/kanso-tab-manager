@@ -70,6 +70,27 @@ export const DEFAULT_PROFILE_SETTINGS: Omit<ProfileSettings, 'name'> = {
 };
 
 /**
+ * Global settings stored in _kanso.json
+ * Contains app-wide configuration that syncs across devices
+ */
+export interface GlobalSettings {
+  /** Version for future migrations */
+  version: number;
+  /** Ordered list of profile IDs */
+  profileOrder: string[];
+  /** Last updated timestamp for conflict resolution */
+  updatedAt: number;
+}
+
+export const GLOBAL_SETTINGS_FILENAME = '_kanso.json';
+
+export const DEFAULT_GLOBAL_SETTINGS: GlobalSettings = {
+  version: 1,
+  profileOrder: [],
+  updatedAt: Date.now(),
+};
+
+/**
  * Workspace metadata (without full link data)
  */
 export interface WorkspaceMeta {

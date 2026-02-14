@@ -34,6 +34,8 @@ import {
   createNewGist,
   fetchProfileSettings,
   saveProfileSettings,
+  fetchGlobalSettings,
+  saveGlobalSettings,
 } from '../github/api';
 
 // Debounced save function (initialized lazily)
@@ -457,6 +459,23 @@ export const useAppStore = create<AppStore>((set, get) => ({
         });
       }
 
+      // Fetch global settings and sort profiles by profileOrder
+      const globalSettings = await fetchGlobalSettings(gistId, pat);
+      const profileOrder = globalSettings.profileOrder || [];
+      
+      profiles.sort((a, b) => {
+        const aIndex = profileOrder.indexOf(a.id);
+        const bIndex = profileOrder.indexOf(b.id);
+        // If both in order, sort by order
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        // If only a in order, a comes first
+        if (aIndex !== -1) return -1;
+        // If only b in order, b comes first
+        if (bIndex !== -1) return 1;
+        // Neither in order, sort alphabetically
+        return a.name.localeCompare(b.name);
+      });
+
       // Sort workspaces by profile's workspaceOrder
       const sortedWorkspaces: WorkspaceMeta[] = [];
       for (const profile of profiles) {
@@ -846,6 +865,21 @@ export const useAppStore = create<AppStore>((set, get) => ({
           },
           pat
         );
+        
+        // Update global settings with new profile in order
+        const allProfiles = get().profiles;
+        const profileOrder = allProfiles.map((p) => p.id);
+        saveGlobalSettings(
+          gistId,
+          {
+            version: 1,
+            profileOrder,
+            updatedAt: Date.now(),
+          },
+          pat
+        ).catch(() => {
+          // Silently ignore - order sync is not critical
+        });
       } catch (error) {
         set({ syncError: 'Failed to sync new profile' });
         console.error(error instanceof Error ? error.message : error);
@@ -919,6 +953,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
       } catch {
         /* continue */
       }
+      
+      // Update global settings (remove profile from order)
+      const profileOrder = remainingProfiles.map((p) => p.id);
+      saveGlobalSettings(
+        gistId,
+        {
+          version: 1,
+          profileOrder,
+          updatedAt: Date.now(),
+        },
+        pat
+      ).catch(() => {
+        // Silently ignore - order sync is not critical
+      });
     }
 
     // Update portable cache
@@ -927,6 +975,36 @@ export const useAppStore = create<AppStore>((set, get) => ({
       workspaces: remainingWorkspaces,
       workspaceDataCache: newCache,
     });
+  },
+
+  reorderProfiles: (oldIndex: number, newIndex: number) => {
+    const { profiles, workspaces, workspaceDataCache, pat, gistId } = get();
+
+    // Reorder profiles array
+    const reordered = [...profiles];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    set({ profiles: reordered });
+
+    // Save to portable cache immediately
+    savePortable({ profiles: reordered, workspaces, workspaceDataCache });
+
+    // Sync profile order to Gist (non-blocking)
+    if (pat && gistId) {
+      const profileOrder = reordered.map((p) => p.id);
+      saveGlobalSettings(
+        gistId,
+        {
+          version: 1,
+          profileOrder,
+          updatedAt: Date.now(),
+        },
+        pat
+      ).catch(() => {
+        // Silently ignore - order sync is not critical
+      });
+    }
   },
 
   // ============================================================================

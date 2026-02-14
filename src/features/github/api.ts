@@ -3,8 +3,9 @@ import type {
   GistUpdatePayload,
   WorkspaceData,
   ProfileSettings,
+  GlobalSettings,
 } from './types';
-import { DEFAULT_PROFILE_SETTINGS } from './types';
+import { DEFAULT_PROFILE_SETTINGS, GLOBAL_SETTINGS_FILENAME, DEFAULT_GLOBAL_SETTINGS } from './types';
 import { generateProfileSettingsFilename } from '@/shared/utils/urlParser';
 
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -322,6 +323,57 @@ export async function saveProfileSettings(
   await updateGistFile(
     gistId,
     filename,
+    JSON.stringify(settings, null, 2),
+    pat
+  );
+}
+
+/**
+ * Fetch global settings from Gist
+ */
+export async function fetchGlobalSettings(
+  gistId: string,
+  pat: string
+): Promise<GlobalSettings> {
+  try {
+    const gist = await fetchGist(gistId, pat);
+    const settingsFile = gist.files[GLOBAL_SETTINGS_FILENAME];
+
+    if (!settingsFile) {
+      return { ...DEFAULT_GLOBAL_SETTINGS };
+    }
+
+    let content: string;
+    if (settingsFile.content && !settingsFile.truncated) {
+      content = settingsFile.content;
+    } else if (settingsFile.raw_url) {
+      content = await fetchGistFileContent(settingsFile.raw_url, pat);
+    } else {
+      return { ...DEFAULT_GLOBAL_SETTINGS };
+    }
+
+    const parsed = JSON.parse(content) as GlobalSettings;
+    // Ensure updatedAt exists for backward compatibility
+    if (!parsed.updatedAt) {
+      parsed.updatedAt = 0;
+    }
+    return parsed;
+  } catch {
+    return { ...DEFAULT_GLOBAL_SETTINGS };
+  }
+}
+
+/**
+ * Save global settings to Gist
+ */
+export async function saveGlobalSettings(
+  gistId: string,
+  settings: GlobalSettings,
+  pat: string
+): Promise<void> {
+  await updateGistFile(
+    gistId,
+    GLOBAL_SETTINGS_FILENAME,
     JSON.stringify(settings, null, 2),
     pat
   );
