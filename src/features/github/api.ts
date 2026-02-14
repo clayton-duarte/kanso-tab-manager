@@ -6,13 +6,14 @@ const GITHUB_API_BASE = 'https://api.github.com'
  * Error class for GitHub API errors
  */
 export class GitHubApiError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public response?: unknown
-  ) {
+  status: number
+  response?: unknown
+
+  constructor(message: string, status: number, response?: unknown) {
     super(message)
     this.name = 'GitHubApiError'
+    this.status = status
+    this.response = response
   }
 }
 

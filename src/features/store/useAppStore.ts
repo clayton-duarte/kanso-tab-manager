@@ -3,68 +3,20 @@ import { nanoid } from 'nanoid'
 import type { AppStore } from './types'
 import type { LinkItem, Profile, WorkspaceData, WorkspaceMeta } from '../github/types'
 import { debounce } from '@/shared/utils/debounce'
-import { generateWorkspaceFilename } from '@/shared/utils/urlParser'
+import { generateWorkspaceFilename, parseWorkspaceFilename } from '@/shared/utils/urlParser'
+import {
+  fetchGist,
+  fetchGistFileContent,
+  updateGistFile,
+  deleteGistFile,
+  parseWorkspaceData,
+  serializeWorkspaceData,
+  validatePat,
+  validateGist,
+} from '../github/api'
 
-// Mock data for development
-const MOCK_PROFILES: Profile[] = [
-  { id: 'profile-1', name: 'Personal', createdAt: Date.now() - 86400000 },
-  { id: 'profile-2', name: 'Work', createdAt: Date.now() - 172800000 },
-]
-
-const MOCK_WORKSPACES: WorkspaceMeta[] = [
-  { id: 'ws-1', name: 'Vacation Planning', profile: 'Personal', filename: 'Personal__Vacation_Planning.json' },
-  { id: 'ws-2', name: 'Side Projects', profile: 'Personal', filename: 'Personal__Side_Projects.json' },
-  { id: 'ws-3', name: 'Jira Tickets', profile: 'Work', filename: 'Work__Jira_Tickets.json' },
-  { id: 'ws-4', name: 'Documentation', profile: 'Work', filename: 'Work__Documentation.json' },
-]
-
-const MOCK_WORKSPACE_DATA: Record<string, WorkspaceData> = {
-  'ws-1': {
-    id: 'ws-1',
-    name: 'Vacation Planning',
-    profile: 'Personal',
-    createdAt: Date.now() - 86400000,
-    links: [
-      { id: 'link-1', url: 'https://www.airbnb.com', title: 'Airbnb', favicon: 'https://www.google.com/s2/favicons?domain=airbnb.com&sz=32', pinned: true },
-      { id: 'link-2', url: 'https://www.kayak.com', title: 'Kayak Flights', favicon: 'https://www.google.com/s2/favicons?domain=kayak.com&sz=32', pinned: false },
-      { id: 'link-3', url: 'https://www.tripadvisor.com', title: 'TripAdvisor', favicon: 'https://www.google.com/s2/favicons?domain=tripadvisor.com&sz=32', pinned: false },
-    ],
-  },
-  'ws-2': {
-    id: 'ws-2',
-    name: 'Side Projects',
-    profile: 'Personal',
-    createdAt: Date.now() - 172800000,
-    links: [
-      { id: 'link-4', url: 'https://github.com', title: 'GitHub', favicon: 'https://www.google.com/s2/favicons?domain=github.com&sz=32', pinned: true },
-      { id: 'link-5', url: 'https://vercel.com', title: 'Vercel', favicon: 'https://www.google.com/s2/favicons?domain=vercel.com&sz=32', pinned: false },
-    ],
-  },
-  'ws-3': {
-    id: 'ws-3',
-    name: 'Jira Tickets',
-    profile: 'Work',
-    createdAt: Date.now() - 259200000,
-    links: [
-      { id: 'link-6', url: 'https://jira.atlassian.com', title: 'Jira', favicon: 'https://www.google.com/s2/favicons?domain=atlassian.com&sz=32', pinned: true },
-      { id: 'link-7', url: 'https://confluence.atlassian.com', title: 'Confluence', favicon: 'https://www.google.com/s2/favicons?domain=atlassian.com&sz=32', pinned: false },
-    ],
-  },
-  'ws-4': {
-    id: 'ws-4',
-    name: 'Documentation',
-    profile: 'Work',
-    createdAt: Date.now() - 345600000,
-    links: [
-      { id: 'link-8', url: 'https://react.dev', title: 'React Docs', favicon: 'https://www.google.com/s2/favicons?domain=react.dev&sz=32', pinned: true },
-      { id: 'link-9', url: 'https://www.typescriptlang.org/docs', title: 'TypeScript Docs', favicon: 'https://www.google.com/s2/favicons?domain=typescriptlang.org&sz=32', pinned: false },
-      { id: 'link-10', url: 'https://chakra-ui.com', title: 'Chakra UI', favicon: 'https://www.google.com/s2/favicons?domain=chakra-ui.com&sz=32', pinned: false },
-    ],
-  },
-}
-
-// Whether to use mock data (set to false when Gist integration is ready)
-const USE_MOCK_DATA = true
+// Cache for workspace data (to avoid refetching)
+const workspaceDataCache: Record<string, WorkspaceData> = {}
 
 // Debounced save function (will be initialized in the store)
 let debouncedSave: ReturnType<typeof debounce> | null = null
@@ -73,31 +25,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Auth state
   pat: null,
   gistId: null,
-  isAuthenticated: USE_MOCK_DATA, // Auto-authenticated in mock mode
+  isAuthenticated: false,
 
   // UI state
-  activeProfileId: USE_MOCK_DATA ? 'profile-1' : null,
-  activeWorkspaceId: USE_MOCK_DATA ? 'ws-1' : null,
+  activeProfileId: null,
+  activeWorkspaceId: null,
   isLoading: false,
   error: null,
   isSaving: false,
 
   // Data state
-  profiles: USE_MOCK_DATA ? MOCK_PROFILES : [],
-  workspaces: USE_MOCK_DATA ? MOCK_WORKSPACES : [],
-  activeWorkspaceData: USE_MOCK_DATA ? MOCK_WORKSPACE_DATA['ws-1'] : null,
+  profiles: [],
+  workspaces: [],
+  activeWorkspaceData: null,
 
   // Initialize the store
   init: async () => {
     set({ isLoading: true, error: null })
 
     try {
-      if (USE_MOCK_DATA) {
-        // Using mock data - already initialized
-        set({ isLoading: false })
-        return
-      }
-
       // Load credentials from chrome.storage.local
       const result = await chrome.storage.local.get(['pat', 'gistId']) as { pat?: string; gistId?: string }
       const { pat, gistId } = result
@@ -110,16 +56,80 @@ export const useAppStore = create<AppStore>((set, get) => ({
         return
       }
 
-      set({ pat, gistId, isAuthenticated: true })
+      // Validate credentials
+      const isPatValid = await validatePat(pat)
+      if (!isPatValid) {
+        set({
+          error: 'Invalid GitHub Personal Access Token',
+          isAuthenticated: false,
+          isLoading: false,
+        })
+        return
+      }
 
-      // TODO: Fetch gist and parse workspace data
-      // This will be implemented in Phase 3
+      // Fetch the Gist
+      const gist = await fetchGist(gistId, pat)
 
-      set({ isLoading: false })
+      // Parse filenames to extract profiles and workspaces
+      const profileSet = new Set<string>()
+      const workspacesList: WorkspaceMeta[] = []
+
+      for (const [filename, _file] of Object.entries(gist.files)) {
+        // Skip non-workspace files (like README.md)
+        if (!filename.endsWith('.json')) continue
+
+        const parsed = parseWorkspaceFilename(filename)
+        if (!parsed) continue
+
+        profileSet.add(parsed.profile)
+        workspacesList.push({
+          id: nanoid(),
+          name: parsed.workspace,
+          profile: parsed.profile,
+          filename,
+        })
+      }
+
+      // Create profile objects
+      const profiles: Profile[] = Array.from(profileSet).map((name, index) => ({
+        id: `profile-${index}`,
+        name,
+        createdAt: Date.now(),
+      }))
+
+      // If no profiles exist, create a default one
+      if (profiles.length === 0) {
+        profiles.push({
+          id: 'profile-default',
+          name: 'Personal',
+          createdAt: Date.now(),
+        })
+      }
+
+      // Set initial active profile and workspace
+      const activeProfile = profiles[0]
+      const activeWorkspace = workspacesList.find(w => w.profile === activeProfile.name)
+
+      set({
+        pat,
+        gistId,
+        isAuthenticated: true,
+        profiles,
+        workspaces: workspacesList,
+        activeProfileId: activeProfile.id,
+        activeWorkspaceId: activeWorkspace?.id || null,
+        isLoading: false,
+      })
+
+      // Load the active workspace data if one exists
+      if (activeWorkspace) {
+        await get().switchWorkspace(activeWorkspace.id)
+      }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to initialize',
         isLoading: false,
+        isAuthenticated: false,
       })
     }
   },
@@ -129,6 +139,26 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
+      // Validate PAT
+      const isPatValid = await validatePat(pat)
+      if (!isPatValid) {
+        set({
+          error: 'Invalid GitHub Personal Access Token',
+          isLoading: false,
+        })
+        return
+      }
+
+      // Validate Gist exists
+      const isGistValid = await validateGist(gistId, pat)
+      if (!isGistValid) {
+        set({
+          error: 'Gist not found or inaccessible',
+          isLoading: false,
+        })
+        return
+      }
+
       // Store in chrome.storage.local
       await chrome.storage.local.set({ pat, gistId })
 
@@ -152,6 +182,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // Clear credentials
   clearCredentials: () => {
     chrome.storage.local.remove(['pat', 'gistId'])
+    
+    // Clear cache
+    Object.keys(workspaceDataCache).forEach(key => delete workspaceDataCache[key])
+    
     set({
       pat: null,
       gistId: null,
@@ -166,8 +200,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // Switch profile
   switchProfile: (profileId: string) => {
-    const { workspaces } = get()
-    const profile = get().profiles.find(p => p.id === profileId)
+    const { workspaces, profiles } = get()
+    const profile = profiles.find(p => p.id === profileId)
     
     if (!profile) return
 
@@ -177,32 +211,84 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       activeProfileId: profileId,
       activeWorkspaceId: firstWorkspace?.id || null,
-      activeWorkspaceData: firstWorkspace && USE_MOCK_DATA
-        ? MOCK_WORKSPACE_DATA[firstWorkspace.id] || null
-        : null,
+      activeWorkspaceData: firstWorkspace ? workspaceDataCache[firstWorkspace.id] || null : null,
     })
+
+    // Load workspace data if not cached
+    if (firstWorkspace && !workspaceDataCache[firstWorkspace.id]) {
+      get().switchWorkspace(firstWorkspace.id)
+    }
   },
 
   // Switch workspace
   switchWorkspace: async (workspaceId: string) => {
+    const { workspaces, pat, gistId } = get()
+    const workspace = workspaces.find(w => w.id === workspaceId)
+    
+    if (!workspace) return
+
+    // Check cache first
+    if (workspaceDataCache[workspaceId]) {
+      set({
+        activeWorkspaceId: workspaceId,
+        activeWorkspaceData: workspaceDataCache[workspaceId],
+      })
+      return
+    }
+
     set({ isLoading: true, error: null })
 
     try {
-      if (USE_MOCK_DATA) {
-        const workspaceData = MOCK_WORKSPACE_DATA[workspaceId]
+      if (!pat || !gistId) {
+        throw new Error('Not authenticated')
+      }
+
+      // Fetch the Gist to get the file content
+      const gist = await fetchGist(gistId, pat)
+      const file = gist.files[workspace.filename]
+
+      if (!file) {
+        // Workspace file doesn't exist yet - create empty workspace data
+        const newWorkspaceData: WorkspaceData = {
+          id: workspaceId,
+          name: workspace.name,
+          profile: workspace.profile,
+          createdAt: Date.now(),
+          links: [],
+        }
+        
+        workspaceDataCache[workspaceId] = newWorkspaceData
+        
         set({
           activeWorkspaceId: workspaceId,
-          activeWorkspaceData: workspaceData || null,
+          activeWorkspaceData: newWorkspaceData,
           isLoading: false,
         })
         return
       }
 
-      // TODO: Fetch workspace data from Gist
-      // This will be implemented in Phase 3
+      // Fetch file content if truncated or not included
+      let content = file.content
+      if (!content || file.truncated) {
+        content = await fetchGistFileContent(file.raw_url, pat)
+      }
+
+      // Parse workspace data
+      const workspaceData = parseWorkspaceData(content)
+      
+      if (!workspaceData) {
+        throw new Error('Invalid workspace data format')
+      }
+
+      // Update the workspace ID to match our internal ID
+      workspaceData.id = workspaceId
+
+      // Cache the data
+      workspaceDataCache[workspaceId] = workspaceData
 
       set({
         activeWorkspaceId: workspaceId,
+        activeWorkspaceData: workspaceData,
         isLoading: false,
       })
     } catch (error) {
@@ -224,15 +310,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => ({
       profiles: [...state.profiles, newProfile],
       activeProfileId: newProfile.id,
+      activeWorkspaceId: null,
+      activeWorkspaceData: null,
     }))
   },
 
   // Delete profile
   deleteProfile: async (profileId: string) => {
-    const { profiles, workspaces, activeProfileId } = get()
+    const { profiles, workspaces, activeProfileId, pat, gistId } = get()
     const profile = profiles.find(p => p.id === profileId)
     
     if (!profile) return
+
+    // Get workspaces to delete
+    const workspacesToDelete = workspaces.filter(w => w.profile === profile.name)
+    
+    // Delete workspace files from Gist
+    if (pat && gistId) {
+      for (const workspace of workspacesToDelete) {
+        try {
+          await deleteGistFile(gistId, workspace.filename, pat)
+          delete workspaceDataCache[workspace.id]
+        } catch {
+          // Continue even if individual delete fails
+        }
+      }
+    }
 
     // Filter out workspaces belonging to this profile
     const remainingWorkspaces = workspaces.filter(w => w.profile !== profile.name)
@@ -248,49 +351,76 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeProfileId: newActiveProfileId,
     })
 
-    // TODO: Delete workspace files from Gist
+    // Switch to new active profile's workspace
+    if (newActiveProfileId && newActiveProfileId !== activeProfileId) {
+      get().switchProfile(newActiveProfileId)
+    }
   },
 
   // Create workspace
   createWorkspace: async (name: string) => {
-    const { profiles, activeProfileId } = get()
+    const { profiles, activeProfileId, pat, gistId } = get()
     const profile = profiles.find(p => p.id === activeProfileId)
     
     if (!profile) return
 
+    const filename = generateWorkspaceFilename(profile.name, name)
+    const workspaceId = nanoid()
+
     const newWorkspace: WorkspaceMeta = {
-      id: nanoid(),
+      id: workspaceId,
       name,
       profile: profile.name,
-      filename: generateWorkspaceFilename(profile.name, name),
+      filename,
     }
 
     const newWorkspaceData: WorkspaceData = {
-      id: newWorkspace.id,
+      id: workspaceId,
       name,
       profile: profile.name,
       createdAt: Date.now(),
       links: [],
     }
 
-    // Update mock data if in mock mode
-    if (USE_MOCK_DATA) {
-      MOCK_WORKSPACE_DATA[newWorkspace.id] = newWorkspaceData
-    }
+    // Cache the data
+    workspaceDataCache[workspaceId] = newWorkspaceData
 
     set(state => ({
       workspaces: [...state.workspaces, newWorkspace],
-      activeWorkspaceId: newWorkspace.id,
+      activeWorkspaceId: workspaceId,
       activeWorkspaceData: newWorkspaceData,
     }))
 
-    // TODO: Create file in Gist
+    // Create file in Gist
+    if (pat && gistId) {
+      try {
+        await updateGistFile(gistId, filename, serializeWorkspaceData(newWorkspaceData), pat)
+      } catch (error) {
+        console.error('Failed to create workspace in Gist:', error)
+        // Don't fail the UI - workspace is created locally
+      }
+    }
   },
 
   // Delete workspace
   deleteWorkspace: async (workspaceId: string) => {
-    const { workspaces, activeWorkspaceId, activeProfileId, profiles } = get()
+    const { workspaces, activeWorkspaceId, activeProfileId, profiles, pat, gistId } = get()
+    const workspace = workspaces.find(w => w.id === workspaceId)
     
+    if (!workspace) return
+
+    // Delete from Gist
+    if (pat && gistId) {
+      try {
+        await deleteGistFile(gistId, workspace.filename, pat)
+      } catch (error) {
+        console.error('Failed to delete workspace from Gist:', error)
+      }
+    }
+
+    // Remove from cache
+    delete workspaceDataCache[workspaceId]
+
     // Select a different workspace if deleting the active one
     const profile = profiles.find(p => p.id === activeProfileId)
     const remainingWorkspaces = workspaces.filter(w => w.id !== workspaceId)
@@ -301,12 +431,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({
       workspaces: remainingWorkspaces,
       activeWorkspaceId: newActiveWorkspace?.id || null,
-      activeWorkspaceData: newActiveWorkspace && USE_MOCK_DATA
-        ? MOCK_WORKSPACE_DATA[newActiveWorkspace.id] || null
+      activeWorkspaceData: newActiveWorkspace
+        ? workspaceDataCache[newActiveWorkspace.id] || null
         : null,
     })
 
-    // TODO: Delete file from Gist
+    // Load new active workspace if needed
+    if (newActiveWorkspace && !workspaceDataCache[newActiveWorkspace.id]) {
+      await get().switchWorkspace(newActiveWorkspace.id)
+    }
   },
 
   // Rename workspace
@@ -319,6 +452,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
         ? { ...state.activeWorkspaceData, name: newName }
         : state.activeWorkspaceData,
     }))
+
+    // Update cache
+    if (workspaceDataCache[workspaceId]) {
+      workspaceDataCache[workspaceId] = {
+        ...workspaceDataCache[workspaceId],
+        name: newName,
+      }
+    }
 
     // Queue save
     get().saveWorkspace()
@@ -337,11 +478,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       if (!state.activeWorkspaceData) return state
 
+      const updated = {
+        ...state.activeWorkspaceData,
+        links: [...state.activeWorkspaceData.links, newLink],
+      }
+
+      // Update cache
+      workspaceDataCache[state.activeWorkspaceData.id] = updated
+
       return {
-        activeWorkspaceData: {
-          ...state.activeWorkspaceData,
-          links: [...state.activeWorkspaceData.links, newLink],
-        },
+        activeWorkspaceData: updated,
       }
     })
 
@@ -354,11 +500,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       if (!state.activeWorkspaceData) return state
 
+      const updated = {
+        ...state.activeWorkspaceData,
+        links: state.activeWorkspaceData.links.filter(l => l.id !== linkId),
+      }
+
+      // Update cache
+      workspaceDataCache[state.activeWorkspaceData.id] = updated
+
       return {
-        activeWorkspaceData: {
-          ...state.activeWorkspaceData,
-          links: state.activeWorkspaceData.links.filter(l => l.id !== linkId),
-        },
+        activeWorkspaceData: updated,
       }
     })
 
@@ -371,13 +522,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       if (!state.activeWorkspaceData) return state
 
+      const updated = {
+        ...state.activeWorkspaceData,
+        links: state.activeWorkspaceData.links.map(l =>
+          l.id === linkId ? { ...l, ...updates } : l
+        ),
+      }
+
+      // Update cache
+      workspaceDataCache[state.activeWorkspaceData.id] = updated
+
       return {
-        activeWorkspaceData: {
-          ...state.activeWorkspaceData,
-          links: state.activeWorkspaceData.links.map(l =>
-            l.id === linkId ? { ...l, ...updates } : l
-          ),
-        },
+        activeWorkspaceData: updated,
       }
     })
 
@@ -390,13 +546,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       if (!state.activeWorkspaceData) return state
 
+      const updated = {
+        ...state.activeWorkspaceData,
+        links: state.activeWorkspaceData.links.map(l =>
+          l.id === linkId ? { ...l, pinned: !l.pinned } : l
+        ),
+      }
+
+      // Update cache
+      workspaceDataCache[state.activeWorkspaceData.id] = updated
+
       return {
-        activeWorkspaceData: {
-          ...state.activeWorkspaceData,
-          links: state.activeWorkspaceData.links.map(l =>
-            l.id === linkId ? { ...l, pinned: !l.pinned } : l
-          ),
-        },
+        activeWorkspaceData: updated,
       }
     })
 
@@ -413,11 +574,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const [removed] = links.splice(oldIndex, 1)
       links.splice(newIndex, 0, removed)
 
+      const updated = {
+        ...state.activeWorkspaceData,
+        links,
+      }
+
+      // Update cache
+      workspaceDataCache[state.activeWorkspaceData.id] = updated
+
       return {
-        activeWorkspaceData: {
-          ...state.activeWorkspaceData,
-          links,
-        },
+        activeWorkspaceData: updated,
       }
     })
 
@@ -431,19 +597,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!debouncedSave) {
       debouncedSave = debounce(async () => {
         const state = get()
-        if (!state.activeWorkspaceData) return
+        if (!state.activeWorkspaceData || !state.pat || !state.gistId) return
+
+        const workspace = state.workspaces.find(w => w.id === state.activeWorkspaceData?.id)
+        if (!workspace) return
 
         set({ isSaving: true })
 
         try {
-          if (USE_MOCK_DATA) {
-            // In mock mode, just update the mock data
-            MOCK_WORKSPACE_DATA[state.activeWorkspaceData.id] = state.activeWorkspaceData
-            console.log('Mock save:', state.activeWorkspaceData)
-          } else {
-            // TODO: Save to Gist
-            // This will be implemented in Phase 3
-          }
+          await updateGistFile(
+            state.gistId,
+            workspace.filename,
+            serializeWorkspaceData(state.activeWorkspaceData),
+            state.pat
+          )
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : 'Failed to save',
