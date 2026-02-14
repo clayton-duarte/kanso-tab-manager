@@ -11,7 +11,6 @@ import {
   IconButton,
   Link,
   Dialog,
-  SimpleGrid,
 } from '@chakra-ui/react'
 import {
   IconLogout,
@@ -242,7 +241,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       Accent Color
                     </Text>
                   </HStack>
-                  <SimpleGrid columns={5} gap={2}>
+                  <HStack gap={1} justifyContent="space-between">
                     {ACCENT_COLORS.map(({ value, label }) => (
                       <Box
                         key={value}
@@ -258,7 +257,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         cursor="pointer"
                       />
                     ))}
-                  </SimpleGrid>
+                  </HStack>
                 </Box>
 
                 {/* Hide Chrome Footer Tip */}
