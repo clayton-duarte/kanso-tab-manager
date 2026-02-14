@@ -1,0 +1,111 @@
+import { Box, Grid, GridItem, SimpleGrid, Text, Flex } from '@chakra-ui/react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable'
+import { useState } from 'react'
+import { TopBar } from './components/TopBar'
+import { Sidebar } from './components/Sidebar'
+import { LinkCard } from './components/LinkCard'
+import { DropZone } from './components/DropZone'
+import { SettingsModal } from './components/SettingsModal'
+import { useAppStore } from '@/features/store/useAppStore'
+
+export function DashboardLayout() {
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const { activeWorkspaceData, reorderLinks } = useAppStore()
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id && activeWorkspaceData) {
+      const oldIndex = activeWorkspaceData.links.findIndex(l => l.id === active.id)
+      const newIndex = activeWorkspaceData.links.findIndex(l => l.id === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderLinks(oldIndex, newIndex)
+      }
+    }
+  }
+
+  const links = activeWorkspaceData?.links || []
+  const linkIds = links.map(l => l.id)
+
+  return (
+    <Grid
+      templateColumns="auto 1fr"
+      templateRows="auto 1fr"
+      h="100vh"
+      bg="gray.900"
+    >
+      {/* Top Bar - spans full width */}
+      <GridItem colSpan={2}>
+        <TopBar onOpenSettings={() => setIsSettingsOpen(true)} />
+      </GridItem>
+
+      {/* Sidebar */}
+      <GridItem>
+        <Sidebar />
+      </GridItem>
+
+      {/* Main Content */}
+      <GridItem overflow="auto" p={6}>
+        <DropZone>
+          {activeWorkspaceData && (
+            <Box>
+              <Flex justify="space-between" align="center" mb={4}>
+                <Text fontSize="xl" fontWeight="bold" color="white">
+                  {activeWorkspaceData.name}
+                </Text>
+                <Text fontSize="sm" color="gray.500">
+                  {links.length} {links.length === 1 ? 'link' : 'links'}
+                </Text>
+              </Flex>
+
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={linkIds} strategy={rectSortingStrategy}>
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} gap={4}>
+                    {links.map(link => (
+                      <LinkCard key={link.id} link={link} />
+                    ))}
+                  </SimpleGrid>
+                </SortableContext>
+              </DndContext>
+            </Box>
+          )}
+        </DropZone>
+      </GridItem>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
+    </Grid>
+  )
+}
