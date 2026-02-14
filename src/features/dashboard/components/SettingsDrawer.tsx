@@ -21,6 +21,7 @@ import {
   IconCheck,
   IconPalette,
   IconX,
+  IconEyeOff,
 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useAppStore } from '@/features/store/useAppStore'
@@ -258,6 +259,19 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       />
                     ))}
                   </SimpleGrid>
+                </Box>
+
+                {/* Hide Chrome Footer Tip */}
+                <Box borderTopWidth="1px" borderColor="gray.700" pt={4}>
+                  <HStack mb={2}>
+                    <IconEyeOff size={16} color="#9CA3AF" />
+                    <Text fontSize="sm" color="gray.400">
+                      Hide Chrome Footer
+                    </Text>
+                  </HStack>
+                  <Text fontSize="xs" color="gray.500">
+                    Right-click the footer at the bottom of the New Tab page and select "Hide footer on New Tab page" to remove Chrome's customize button.
+                  </Text>
                 </Box>
 
                 {/* Divider */}
