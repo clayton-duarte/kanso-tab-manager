@@ -34,6 +34,7 @@ export function LinkCard({ link }: LinkCardProps) {
   const [editTitle, setEditTitle] = useState(link.title);
   const [editUrl, setEditUrl] = useState(link.url);
   const [faviconError, setFaviconError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const {
     attributes,
@@ -51,6 +52,7 @@ export function LinkCard({ link }: LinkCardProps) {
   };
 
   const handleOpenLink = () => {
+    if (menuOpen) return;
     window.location.href = link.url;
   };
 
@@ -195,7 +197,7 @@ export function LinkCard({ link }: LinkCardProps) {
               <Text fontSize="sm" fontWeight="medium" lineClamp={1} flex={1}>
                 {link.title}
               </Text>
-              <Menu.Root>
+              <Menu.Root open={menuOpen} onOpenChange={(e) => setMenuOpen(e.open)}>
                 <Menu.Trigger asChild>
                   <IconButton
                     aria-label="Link menu"
@@ -210,8 +212,14 @@ export function LinkCard({ link }: LinkCardProps) {
                 </Menu.Trigger>
                 <Portal>
                   <Menu.Positioner>
-                    <Menu.Content>
-                      <Menu.Item value="edit" onClick={handleStartEdit}>
+                    <Menu.Content onClick={(e) => e.stopPropagation()}>
+                      <Menu.Item
+                        value="edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEdit();
+                        }}
+                      >
                         <IconPencil size={14} />
                         Edit
                       </Menu.Item>
@@ -219,7 +227,10 @@ export function LinkCard({ link }: LinkCardProps) {
                         value="delete"
                         color="fg.error"
                         _hover={{ bg: 'bg.error', color: 'fg.error' }}
-                        onClick={handleDelete}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete();
+                        }}
                       >
                         <IconTrash size={14} />
                         Delete
