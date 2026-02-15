@@ -104,12 +104,12 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
           <Drawer.Backdrop />
           <Drawer.Positioner>
             <Drawer.Content
-              bg="gray.800"
-              borderColor="gray.700"
+              bg="bg.muted"
+              borderColor="border.muted"
               borderLeftWidth="1px"
             >
-              <Drawer.Header borderBottomWidth="1px" borderColor="gray.700">
-                <Drawer.Title color="white">Settings</Drawer.Title>
+              <Drawer.Header borderBottomWidth="1px" borderColor="border.muted">
+                <Drawer.Title color="fg">Settings</Drawer.Title>
                 <Drawer.CloseTrigger asChild>
                   <IconButton
                     aria-label="Close settings"
@@ -126,15 +126,15 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                 <VStack gap={6} align="stretch">
                   {/* Gist Link Section */}
                   <Box>
-                    <Text fontSize="sm" color="gray.400" mb={2}>
+                    <Text fontSize="sm" color="fg.muted" mb={2}>
                       Your Gist
                     </Text>
                     <Box
-                      bg="gray.700"
+                      bg="bg.emphasized"
                       borderRadius="md"
                       p={3}
                       borderWidth="1px"
-                      borderColor="gray.600"
+                      borderColor="border.subtle"
                     >
                       <HStack justify="space-between" align="center">
                         <Link
@@ -153,7 +153,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       </HStack>
                       <Text
                         fontSize="xs"
-                        color="gray.500"
+                        color="fg.subtle"
                         mt={2}
                         fontFamily="mono"
                       >
@@ -165,7 +165,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                   {/* PAT Section */}
                   <Box>
                     <HStack justify="space-between" align="center" mb={2}>
-                      <Text fontSize="sm" color="gray.400">
+                      <Text fontSize="sm" color="fg.muted">
                         Personal Access Token
                       </Text>
                       {!editingPat && (
@@ -191,7 +191,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                             left={3}
                             top="50%"
                             transform="translateY(-50%)"
-                            color="gray.500"
+                            color="fg.subtle"
                           >
                             <IconKey size={18} />
                           </Box>
@@ -230,13 +230,13 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                       </VStack>
                     ) : (
                       <Box
-                        bg="gray.700"
+                        bg="bg.emphasized"
                         borderRadius="md"
                         p={3}
                         borderWidth="1px"
-                        borderColor="gray.600"
+                        borderColor="border.subtle"
                       >
-                        <Text fontSize="sm" color="gray.300" fontFamily="mono">
+                        <Text fontSize="sm" color="fg" fontFamily="mono">
                           ••••••••••••••••
                         </Text>
                       </Box>
@@ -246,8 +246,10 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                   {/* Accent Color Section */}
                   <Box>
                     <HStack mb={2}>
-                      <IconPalette size={16} color="#9CA3AF" />
-                      <Text fontSize="sm" color="gray.400">
+                      <Box color="fg.muted">
+                        <IconPalette size={16} />
+                      </Box>
+                      <Text fontSize="sm" color="fg.muted">
                         Accent Color
                       </Text>
                     </HStack>
@@ -263,7 +265,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                           bg={`${value}.500`}
                           borderWidth="2px"
                           borderColor={
-                            accentColor === value ? 'white' : 'transparent'
+                            accentColor === value ? 'fg' : 'transparent'
                           }
                           onClick={() => setAccentColor(value)}
                           cursor="pointer"
@@ -273,14 +275,16 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                   </Box>
 
                   {/* Hide Chrome Footer Tip */}
-                  <Box borderTopWidth="1px" borderColor="gray.700" pt={4}>
+                  <Box borderTopWidth="1px" borderColor="border.muted" pt={4}>
                     <HStack mb={2}>
-                      <IconEyeOff size={16} color="#9CA3AF" />
-                      <Text fontSize="sm" color="gray.400">
+                      <Box color="fg.muted">
+                        <IconEyeOff size={16} />
+                      </Box>
+                      <Text fontSize="sm" color="fg.muted">
                         Hide Chrome Footer
                       </Text>
                     </HStack>
-                    <Text fontSize="xs" color="gray.500">
+                    <Text fontSize="xs" color="fg.subtle">
                       Right-click the footer at the bottom of the New Tab page
                       and select "Hide footer on New Tab page" to remove
                       Chrome's customize button.
@@ -288,8 +292,8 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                   </Box>
 
                   {/* Divider */}
-                  <Box borderTopWidth="1px" borderColor="gray.700" pt={4}>
-                    <Heading size="sm" color="gray.400" mb={4}>
+                  <Box borderTopWidth="1px" borderColor="border.muted" pt={4}>
+                    <Heading size="sm" color="fg.muted" mb={4}>
                       Account Actions
                     </Heading>
 
@@ -304,7 +308,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         <IconLogout size={18} />
                         Disconnect
                       </Button>
-                      <Text fontSize="xs" color="gray.500" mt={-2}>
+                      <Text fontSize="xs" color="fg.subtle" mt={-2}>
                         Sign out and clear local credentials. Your Gist data
                         remains on GitHub.
                       </Text>
@@ -319,7 +323,7 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         <IconTrash size={18} />
                         Delete Gist & Logout
                       </Button>
-                      <Text fontSize="xs" color="gray.500" mt={-2}>
+                      <Text fontSize="xs" color="fg.subtle" mt={-2}>
                         Permanently delete your Gist and all saved data. This
                         cannot be undone.
                       </Text>
@@ -344,15 +348,15 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
           <Dialog.Backdrop />
           <Dialog.Positioner>
             <Dialog.Content
-              bg="gray.800"
-              borderColor="gray.700"
+              bg="bg.muted"
+              borderColor="border.muted"
               borderWidth="1px"
             >
-              <Dialog.Header borderBottomWidth="1px" borderColor="gray.700">
-                <Dialog.Title color="white">Delete Gist?</Dialog.Title>
+              <Dialog.Header borderBottomWidth="1px" borderColor="border.muted">
+                <Dialog.Title color="fg">Delete Gist?</Dialog.Title>
               </Dialog.Header>
               <Dialog.Body py={4}>
-                <Text color="gray.300">
+                <Text color="fg">
                   Are you sure you want to delete the Gist and all your data?
                   This action cannot be undone.
                 </Text>

@@ -80,7 +80,7 @@ function SortableWorkspaceItem({
       py={2}
       cursor="pointer"
       bg={isActive ? `${accentColor}.900/40` : 'transparent'}
-      color={isActive ? `${accentColor}.300` : 'gray.400'}
+      color={isActive ? `${accentColor}.300` : 'fg.muted'}
       borderLeftWidth="2px"
       borderLeftColor={isActive ? `${accentColor}.500` : 'transparent'}
       onClick={onSwitch}
@@ -89,8 +89,8 @@ function SortableWorkspaceItem({
         {...attributes}
         {...listeners}
         cursor="grab"
-        color="gray.500"
-        _hover={{ color: 'gray.300' }}
+        color="fg.subtle"
+        _hover={{ color: 'fg' }}
         onClick={(e) => e.stopPropagation()}
       >
         <IconGripVertical size={14} />
@@ -238,9 +238,9 @@ export function Sidebar() {
   return (
     <Box
       as="aside"
-      bg="gray.850"
+      bg="bg.subtle"
       borderRightWidth="1px"
-      borderColor="gray.700"
+      borderColor="border.muted"
       w="240px"
       minW="240px"
       h="100%"
@@ -252,12 +252,12 @@ export function Sidebar() {
         px={4}
         py={3}
         borderBottomWidth="1px"
-        borderColor="gray.700"
+        borderColor="border.muted"
       >
         <Text
           fontSize="xs"
           fontWeight="semibold"
-          color="gray.400"
+          color="fg.muted"
           textTransform="uppercase"
         >
           Workspaces
@@ -366,7 +366,13 @@ export function Sidebar() {
         )}
 
         {profileWorkspaces.length === 0 && !isCreating && (
-          <Text fontSize="sm" color="gray.500" px={3} py={4} textAlign="center">
+          <Text
+            fontSize="sm"
+            color="fg.subtle"
+            px={3}
+            py={4}
+            textAlign="center"
+          >
             No workspaces yet.{' '}
             <Text
               as="span"

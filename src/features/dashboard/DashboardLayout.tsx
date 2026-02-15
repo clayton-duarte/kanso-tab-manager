@@ -159,7 +159,7 @@ export function DashboardLayout() {
     <Grid
       templateColumns="auto 1fr"
       templateRows="auto auto 1fr"
-      bg="gray.900"
+      bg="bg"
       h="100vh"
     >
       {/* Top Bar - spans full width */}
@@ -183,11 +183,11 @@ export function DashboardLayout() {
           {activeWorkspaceData && (
             <Box maxW="700px" mx="auto" p={6}>
               <Flex justify="space-between" align="center" mb={4}>
-                <Text fontSize="xl" fontWeight="bold" color="white">
+                <Text fontSize="xl" fontWeight="bold" color="fg">
                   {activeWorkspaceData.name}
                 </Text>
                 <HStack gap={2}>
-                  <Text fontSize="sm" color="gray.500">
+                  <Text fontSize="sm" color="fg.subtle">
                     {links.length} {links.length === 1 ? 'link' : 'links'}
                   </Text>
                   <IconButton

@@ -114,7 +114,7 @@ export async function openTabsInOrder(tabs: TabInfo[]): Promise<void> {
     currentWindow: true,
     active: true,
   });
-  
+
   // Start after the active (dashboard) tab
   const startIndex = activeTab?.index !== undefined ? activeTab.index + 1 : 1;
 
@@ -153,10 +153,7 @@ export async function getCurrentTabs(): Promise<TabInfo[]> {
 
   return tabs
     .filter(
-      (tab) =>
-        tab.id !== extensionTabId &&
-        tab.url &&
-        !tab.pinned // Exclude pinned tabs - they're preserved
+      (tab) => tab.id !== extensionTabId && tab.url && !tab.pinned // Exclude pinned tabs - they're preserved
     )
     .map((tab) => ({
       url: tab.url!,

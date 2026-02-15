@@ -20,6 +20,11 @@ export type AccentColor =
   | 'purple'
   | 'pink';
 
+/**
+ * Color mode preference
+ */
+export type ColorMode = 'light' | 'dark' | 'system';
+
 // ============================================================================
 // SESSION STATE (device-specific, never synced to Gist)
 // ============================================================================
@@ -39,6 +44,8 @@ export interface SessionState {
   activeWorkspaceId: string | null;
   /** Map of profile ID to last used workspace ID (per-device memory) */
   profileWorkspaceMap: Record<string, string>;
+  /** Color mode preference (light/dark/system) - device-specific */
+  colorMode: ColorMode;
 }
 
 // ============================================================================
@@ -160,6 +167,8 @@ export interface AppActions {
   // UI Preferences
   /** Set accent color for active profile */
   setAccentColor: (color: AccentColor) => void;
+  /** Set color mode preference */
+  setColorMode: (mode: ColorMode) => void;
 
   // Error handling
   /** Clear sync error warning */

@@ -5,7 +5,11 @@ import type {
   ProfileSettings,
   GlobalSettings,
 } from './types';
-import { DEFAULT_PROFILE_SETTINGS, GLOBAL_SETTINGS_FILENAME, DEFAULT_GLOBAL_SETTINGS } from './types';
+import {
+  DEFAULT_PROFILE_SETTINGS,
+  GLOBAL_SETTINGS_FILENAME,
+  DEFAULT_GLOBAL_SETTINGS,
+} from './types';
 import { generateProfileSettingsFilename } from '@/shared/utils/urlParser';
 
 const GITHUB_API_BASE = 'https://api.github.com';

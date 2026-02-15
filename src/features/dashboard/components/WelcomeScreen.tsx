@@ -59,7 +59,7 @@ export function WelcomeScreen() {
   return (
     <Box
       minH="100vh"
-      bg="gray.900"
+      bg="bg"
       display="flex"
       alignItems="center"
       justifyContent="center"
@@ -69,17 +69,17 @@ export function WelcomeScreen() {
         gap={6}
         maxW="440px"
         w="100%"
-        bg="gray.800"
+        bg="bg.muted"
         p={8}
         borderRadius="xl"
         borderWidth="1px"
-        borderColor="gray.700"
+        borderColor="border.muted"
       >
         <VStack gap={2}>
-          <Heading size="lg" color="white">
+          <Heading size="lg" color="fg">
             Welcome to Kanso
           </Heading>
-          <Text color="gray.400" textAlign="center">
+          <Text color="fg.muted" textAlign="center">
             A privacy-first tab manager using GitHub Gist as your database
           </Text>
         </VStack>
@@ -98,7 +98,7 @@ export function WelcomeScreen() {
           variant="enclosed"
           colorPalette={accentColor}
         >
-          <Tabs.List w="100%" bg="gray.900" borderRadius="lg" p={1}>
+          <Tabs.List w="100%" bg="bg" borderRadius="lg" p={1}>
             <Tabs.Trigger value="new" flex={1} fontSize="sm" borderRadius="md">
               <IconSparkles size={16} />
               New Setup
@@ -117,7 +117,7 @@ export function WelcomeScreen() {
 
         <VStack as="form" gap={4} w="100%" onSubmit={handleSubmit}>
           <Box w="100%">
-            <Text fontSize="sm" color="gray.400" mb={2}>
+            <Text fontSize="sm" color="fg.muted" mb={2}>
               GitHub Personal Access Token
             </Text>
             <Box position="relative">
@@ -126,7 +126,7 @@ export function WelcomeScreen() {
                 left={3}
                 top="50%"
                 transform="translateY(-50%)"
-                color="gray.500"
+                color="fg.subtle"
               >
                 <IconKey size={18} />
               </Box>
@@ -139,7 +139,7 @@ export function WelcomeScreen() {
                 variant="outline"
               />
             </Box>
-            <Text fontSize="xs" color="gray.500" mt={1}>
+            <Text fontSize="xs" color="fg.subtle" mt={1}>
               Create a fine-grained PAT with only "Gists" permission.{' '}
               <Link
                 href="https://github.com/settings/personal-access-tokens/new"
@@ -153,7 +153,7 @@ export function WelcomeScreen() {
 
           {mode === 'existing' && (
             <Box w="100%">
-              <Text fontSize="sm" color="gray.400" mb={2}>
+              <Text fontSize="sm" color="fg.muted" mb={2}>
                 Gist ID
               </Text>
               <Box position="relative">
@@ -162,7 +162,7 @@ export function WelcomeScreen() {
                   left={3}
                   top="50%"
                   transform="translateY(-50%)"
-                  color="gray.500"
+                  color="fg.subtle"
                 >
                   <IconFileCode size={18} />
                 </Box>
@@ -174,7 +174,7 @@ export function WelcomeScreen() {
                   variant="outline"
                 />
               </Box>
-              <Text fontSize="xs" color="gray.500" mt={1}>
+              <Text fontSize="xs" color="fg.subtle" mt={1}>
                 The ID from your existing Kanso Gist URL
               </Text>
             </Box>
@@ -192,7 +192,7 @@ export function WelcomeScreen() {
           </Button>
         </VStack>
 
-        <Text fontSize="xs" color="gray.500" textAlign="center">
+        <Text fontSize="xs" color="fg.subtle" textAlign="center">
           Your token is stored locally and never leaves your browser.
           {mode === 'new' && (
             <>

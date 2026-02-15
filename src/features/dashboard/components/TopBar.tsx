@@ -9,6 +9,7 @@ import {
   ProgressCircle,
   Menu,
   Portal,
+  Switch,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -19,8 +20,10 @@ import {
   IconChevronDown,
   IconPencil,
   IconTrash,
+  IconSun,
+  IconMoon,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -86,8 +89,8 @@ function SortableProfileTab({
         {...attributes}
         {...listeners}
         cursor="grab"
-        color={isActive ? `${accentColor}.400` : 'gray.500'}
-        _hover={{ color: isActive ? `${accentColor}.300` : 'gray.400' }}
+        color={isActive ? `${accentColor}.400` : 'fg.subtle'}
+        _hover={{ color: isActive ? `${accentColor}.300` : 'fg.muted' }}
         onClick={(e) => e.stopPropagation()}
       >
         <IconGripVertical size={12} />
@@ -147,11 +150,26 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     isSaving,
     isSyncing,
     accentColor,
+    colorMode,
+    setColorMode,
   } = useAppStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingProfileName, setEditingProfileName] = useState('');
+
+  // Resolve color mode for switch state (light switch: ON = light, OFF = dark)
+  const isLightMode = useMemo(() => {
+    if (colorMode === 'system') {
+      return !window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return colorMode === 'light';
+  }, [colorMode]);
+
+  const handleToggleColorMode = () => {
+    // Toggle between light and dark (explicit choice replaces system)
+    setColorMode(isLightMode ? 'dark' : 'light');
+  };
 
   const handleStartEdit = (profileId: string, currentName: string) => {
     setEditingProfileId(profileId);
@@ -227,16 +245,19 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
   return (
     <Box
       as="header"
-      bg="gray.900"
+      bg="bg"
       borderBottomWidth="1px"
-      borderColor="gray.700"
+      borderColor="border.muted"
       pr={4}
     >
       <Flex justify="space-between" align="center">
         <HStack gap={0}>
-          <Box w="240px" p={4}
-                borderRightWidth="1px"
-      borderColor="gray.700">
+          <Box
+            w="240px"
+            p={4}
+            borderRightWidth="1px"
+            borderColor="border.muted"
+          >
             <Text
               fontSize="lg"
               fontWeight="bold"
@@ -271,7 +292,9 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                         <Input
                           size="sm"
                           value={editingProfileName}
-                          onChange={(e) => setEditingProfileName(e.target.value)}
+                          onChange={(e) =>
+                            setEditingProfileName(e.target.value)
+                          }
                           onKeyDown={handleRenameKeyDown}
                           autoFocus
                           width="100px"
@@ -366,9 +389,9 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         <HStack gap={2}>
           {(isSaving || isSyncing) && (
             <ProgressCircle.Root
+              colorPalette={accentColor}
               value={null}
               size="xs"
-              colorPalette={accentColor}
             >
               <ProgressCircle.Circle>
                 <ProgressCircle.Track />
@@ -376,6 +399,20 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
               </ProgressCircle.Circle>
             </ProgressCircle.Root>
           )}
+          <Switch.Root
+            checked={isLightMode}
+            colorPalette={accentColor}
+            onCheckedChange={handleToggleColorMode}
+            size="md"
+          >
+            <Switch.HiddenInput />
+            <Switch.Control>
+              <Switch.Indicator fallback={<IconMoon size={12} />}>
+                <IconSun size={12} />
+              </Switch.Indicator>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Root>
           <IconButton
             aria-label="Settings"
             variant="ghost"

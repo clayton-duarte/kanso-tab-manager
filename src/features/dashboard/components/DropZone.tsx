@@ -109,7 +109,7 @@ export function DropZone({ children }: DropZoneProps) {
           justify="center"
           direction="column"
           gap={4}
-          color="gray.500"
+          color="fg.subtle"
         >
           <IconLink size={48} stroke={1.5} />
           <Text fontSize="lg" fontWeight="medium">

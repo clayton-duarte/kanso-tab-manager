@@ -23,6 +23,7 @@ const DEFAULT_SESSION: SessionState = {
   activeProfileId: null,
   activeWorkspaceId: null,
   profileWorkspaceMap: {},
+  colorMode: 'system',
 };
 
 const DEFAULT_PORTABLE: PortableState = {

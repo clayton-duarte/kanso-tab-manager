@@ -32,16 +32,12 @@ export function SyncStatusBanner() {
         py={2}
         px={4}
         borderRadius={0}
-        bg="yellow.900/30"
-        borderBottomWidth="1px"
-        borderBottomColor="yellow.800/50"
+        colorPalette="yellow"
       >
         <HStack justify="space-between" w="100%">
           <HStack gap={2}>
             <IconCloudOff size={16} />
-            <Text fontSize="sm" color="yellow.200">
-              {syncError}
-            </Text>
+            <Text fontSize="sm">{syncError}</Text>
           </HStack>
           <HStack gap={1}>
             <IconButton

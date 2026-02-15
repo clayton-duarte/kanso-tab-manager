@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { AppStore, AccentColor } from './types';
+import type { AppStore, AccentColor, ColorMode } from './types';
 import type {
   LinkItem,
   Profile,
@@ -65,6 +65,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeProfileId: null,
   activeWorkspaceId: null,
   profileWorkspaceMap: {},
+  colorMode: 'system',
 
   // ============================================================================
   // PORTABLE STATE (synced to Gist)
@@ -104,6 +105,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeProfileId,
         activeWorkspaceId,
         profileWorkspaceMap,
+        colorMode,
       } = session;
 
       // No credentials = not authenticated
@@ -111,6 +113,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         set({
           isInitializing: false,
           isAuthenticated: false,
+          colorMode,
         });
         return;
       }
@@ -134,6 +137,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeProfileId: activeProfile?.id || null,
         activeWorkspaceId: activeWorkspace?.id || null,
         profileWorkspaceMap,
+        colorMode,
         // Portable
         profiles: portable.profiles,
         workspaces: portable.workspaces,
@@ -463,7 +467,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Fetch global settings and sort profiles by profileOrder
       const globalSettings = await fetchGlobalSettings(gistId, pat);
       const profileOrder = globalSettings.profileOrder || [];
-      
+
       profiles.sort((a, b) => {
         const aIndex = profileOrder.indexOf(a.id);
         const bIndex = profileOrder.indexOf(b.id);
@@ -910,7 +914,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           },
           pat
         );
-        
+
         // Update global settings with new profile in order
         const allProfiles = get().profiles;
         const profileOrder = allProfiles.map((p) => p.id);
@@ -998,7 +1002,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       } catch {
         /* continue */
       }
-      
+
       // Update global settings (remove profile from order)
       const profileOrder = remainingProfiles.map((p) => p.id);
       saveGlobalSettings(
@@ -1053,13 +1057,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   renameProfile: async (profileId: string, newName: string) => {
-    const {
-      profiles,
-      workspaces,
-      workspaceDataCache,
-      pat,
-      gistId,
-    } = get();
+    const { profiles, workspaces, workspaceDataCache, pat, gistId } = get();
     const profile = profiles.find((p) => p.id === profileId);
 
     if (!profile || !newName.trim() || newName === profile.name) return;
@@ -1086,7 +1084,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     for (const [oldId, data] of Object.entries(workspaceDataCache)) {
       const workspace = workspaces.find((w) => w.id === oldId);
       if (workspace && workspace.profile === oldName) {
-        const newFilename = generateWorkspaceFilename(trimmedName, workspace.name);
+        const newFilename = generateWorkspaceFilename(
+          trimmedName,
+          workspace.name
+        );
         const newId = `ws-${newFilename}`;
         newCache[newId] = { ...data, id: newId, profile: trimmedName };
       } else {
@@ -1134,15 +1135,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
           gistId,
           generateProfileSettingsFilename(oldName),
           pat
-        ).catch(() => {/* ignore */});
+        ).catch(() => {
+          /* ignore */
+        });
 
         // 3. Create new workspace files and delete old ones
-        const profileWorkspaces = workspaces.filter((w) => w.profile === oldName);
+        const profileWorkspaces = workspaces.filter(
+          (w) => w.profile === oldName
+        );
         for (const ws of profileWorkspaces) {
           const oldFilename = ws.filename;
           const newFilename = generateWorkspaceFilename(trimmedName, ws.name);
           const data = workspaceDataCache[ws.id];
-          
+
           if (data) {
             // Create new workspace file
             await updateGistFile(
@@ -1152,9 +1157,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
               pat
             );
           }
-          
+
           // Delete old workspace file
-          await deleteGistFile(gistId, oldFilename, pat).catch(() => {/* ignore */});
+          await deleteGistFile(gistId, oldFilename, pat).catch(() => {
+            /* ignore */
+          });
         }
       } catch {
         // Error handling - could rollback or retry
@@ -1425,7 +1432,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   addLink: (url: string, title: string, favicon?: string) => {
     const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
       get();
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return undefined;
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId])
+      return undefined;
 
     const linkId = nanoid();
     const newLink: LinkItem = {
@@ -1698,6 +1706,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         // Silently ignore - preference sync is not critical
       });
     }
+  },
+
+  setColorMode: (colorMode: ColorMode) => {
+    set({ colorMode });
+    saveSession({ colorMode });
   },
 
   // ============================================================================
