@@ -193,11 +193,10 @@ export function LinkCard({ link }: LinkCardProps) {
             color="fg.muted"
             onClick={(e) => e.stopPropagation()}
             flexShrink={0}
-            px={3}
-            py={3}
             alignSelf="stretch"
             display="flex"
             alignItems="center"
+            ml={3}
           >
             <IconGripVertical size={16} />
           </Box>

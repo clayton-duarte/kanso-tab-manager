@@ -75,12 +75,12 @@ function SortableProfileTab({
       ref={setNodeRef}
       style={style}
       value={profile.id}
-      px={2}
-      py={1.5}
+      pl={2}
+      pr={0}
       fontSize="sm"
       display="flex"
       alignItems="center"
-      gap={1}
+      gap={2}
     >
       <Box
         {...attributes}
@@ -231,11 +231,12 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
       borderBottomWidth="1px"
       borderColor="gray.700"
       pr={4}
-      py={2}
     >
       <Flex justify="space-between" align="center">
         <HStack gap={0}>
-          <Box w="240px" px={4}>
+          <Box w="240px" p={4}
+                borderRightWidth="1px"
+      borderColor="gray.700">
             <Text
               fontSize="lg"
               fontWeight="bold"
@@ -249,9 +250,10 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
           <Tabs.Root
             value={activeProfileId || ''}
             onValueChange={(details) => switchProfile(details.value)}
-            variant="line"
-            size="sm"
             colorPalette={accentColor}
+            alignSelf="end"
+            variant="line"
+            size="lg"
           >
             <Tabs.List bg="transparent" borderBottomWidth={0}>
               <DndContext

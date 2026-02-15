@@ -78,7 +78,6 @@ function SortableWorkspaceItem({
       gap={1}
       px={2}
       py={2}
-      borderRadius="md"
       cursor="pointer"
       bg={isActive ? `${accentColor}.900/40` : 'transparent'}
       color={isActive ? `${accentColor}.300` : 'gray.400'}
@@ -274,7 +273,7 @@ export function Sidebar() {
         </IconButton>
       </Flex>
 
-      <VStack gap={1} align="stretch" p={2}>
+      <VStack gap={1} align="stretch">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

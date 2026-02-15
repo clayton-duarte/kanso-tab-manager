@@ -65,8 +65,8 @@ export function DashboardLayout() {
     <Grid
       templateColumns="auto 1fr"
       templateRows="auto auto 1fr"
-      h="100vh"
       bg="gray.900"
+      h="100vh"
     >
       {/* Top Bar - spans full width */}
       <GridItem colSpan={2}>
