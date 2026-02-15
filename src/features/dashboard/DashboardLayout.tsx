@@ -84,7 +84,7 @@ export function DashboardLayout() {
       </GridItem>
 
       {/* Main Content */}
-      <GridItem overflow="auto" p={6}>
+      <GridItem overflow="auto">
         <DropZone>
           {activeWorkspaceData && (
             <Box maxW="700px" mx="auto">

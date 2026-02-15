@@ -78,7 +78,7 @@ export function DropZone({ children }: DropZoneProps) {
       {isDragOver && (
         <Flex
           position="absolute"
-          inset={4}
+          inset={0}
           bg={`${accentColor}.900/30`}
           borderRadius="xl"
           borderWidth="2px"
