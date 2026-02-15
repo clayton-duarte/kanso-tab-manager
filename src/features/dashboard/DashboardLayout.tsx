@@ -1,4 +1,4 @@
-import { Box, Grid, GridItem, SimpleGrid, Text, Flex } from '@chakra-ui/react';
+import { Box, Grid, GridItem, Text, Flex, VStack } from '@chakra-ui/react';
 import {
   DndContext,
   closestCenter,
@@ -11,7 +11,7 @@ import {
 import {
   SortableContext,
   sortableKeyboardCoordinates,
-  rectSortingStrategy,
+  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useState } from 'react';
 import { TopBar } from './components/TopBar';
@@ -87,7 +87,7 @@ export function DashboardLayout() {
       <GridItem overflow="auto" p={6}>
         <DropZone>
           {activeWorkspaceData && (
-            <Box>
+            <Box maxW="700px" mx="auto">
               <Flex justify="space-between" align="center" mb={4}>
                 <Text fontSize="xl" fontWeight="bold" color="white">
                   {activeWorkspaceData.name}
@@ -102,15 +102,15 @@ export function DashboardLayout() {
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
               >
-                <SortableContext items={linkIds} strategy={rectSortingStrategy}>
-                  <SimpleGrid
-                    columns={{ base: 1, md: 2, lg: 3, xl: 4 }}
-                    gap={4}
-                  >
+                <SortableContext
+                  items={linkIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <VStack gap={3} align="stretch">
                     {links.map((link) => (
                       <LinkCard key={link.id} link={link} />
                     ))}
-                  </SimpleGrid>
+                  </VStack>
                 </SortableContext>
               </DndContext>
             </Box>

@@ -1,10 +1,22 @@
-import { Box, Flex, Text, IconButton, Image } from '@chakra-ui/react';
 import {
-  IconPin,
-  IconPinnedFilled,
+  Box,
+  Flex,
+  Text,
+  IconButton,
+  Image,
+  Card,
+  Menu,
+  Portal,
+  Input,
+  VStack,
+} from '@chakra-ui/react';
+import {
   IconTrash,
   IconGripVertical,
-  IconExternalLink,
+  IconChevronDown,
+  IconPencil,
+  IconCheck,
+  IconX,
 } from '@tabler/icons-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -17,8 +29,11 @@ interface LinkCardProps {
 }
 
 export function LinkCard({ link }: LinkCardProps) {
-  const { removeLink, togglePinLink, accentColor } = useAppStore();
-  const [isHovered, setIsHovered] = useState(false);
+  const { removeLink, updateLink, accentColor } = useAppStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(link.title);
+  const [editUrl, setEditUrl] = useState(link.url);
+  const [faviconError, setFaviconError] = useState(false);
 
   const {
     attributes,
@@ -36,148 +51,192 @@ export function LinkCard({ link }: LinkCardProps) {
   };
 
   const handleOpenLink = () => {
-    window.open(link.url, '_blank', 'noopener,noreferrer');
+    window.location.href = link.url;
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     removeLink(link.id);
   };
 
-  const handleTogglePin = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    togglePinLink(link.id);
+  const handleStartEdit = () => {
+    setEditTitle(link.title);
+    setEditUrl(link.url);
+    setIsEditing(true);
   };
 
-  // Extract domain for display
-  const domain = (() => {
+  const handleSaveEdit = () => {
+    if (editTitle.trim() && editUrl.trim()) {
+      updateLink(link.id, {
+        title: editTitle.trim(),
+        url: editUrl.trim(),
+      });
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditTitle(link.title);
+    setEditUrl(link.url);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  // Extract favicon URL using Google's service
+  const faviconUrl = (() => {
     try {
-      return new URL(link.url).hostname.replace('www.', '');
+      const domain = new URL(link.url).hostname;
+      return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
     } catch {
-      return link.url;
+      return null;
     }
   })();
 
+  const showFavicon = faviconUrl && !faviconError;
+
+  if (isEditing) {
+    return (
+      <Card.Root ref={setNodeRef} style={style} size="sm" variant="outline">
+        <Card.Body p={3}>
+          <VStack gap={2} align="stretch">
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="Title"
+              size="sm"
+              variant="outline"
+              autoFocus
+              onKeyDown={handleKeyDown}
+            />
+            <Input
+              value={editUrl}
+              onChange={(e) => setEditUrl(e.target.value)}
+              placeholder="URL"
+              size="sm"
+              variant="outline"
+              onKeyDown={handleKeyDown}
+            />
+            <Flex justify="flex-end" gap={1}>
+              <IconButton
+                aria-label="Cancel"
+                size="xs"
+                variant="ghost"
+                onClick={handleCancelEdit}
+              >
+                <IconX size={14} />
+              </IconButton>
+              <IconButton
+                aria-label="Save"
+                size="xs"
+                variant="solid"
+                colorPalette={accentColor}
+                onClick={handleSaveEdit}
+              >
+                <IconCheck size={14} />
+              </IconButton>
+            </Flex>
+          </VStack>
+        </Card.Body>
+      </Card.Root>
+    );
+  }
+
   return (
-    <Box
+    <Card.Root
       ref={setNodeRef}
       style={style}
-      bg="gray.800"
-      borderRadius="lg"
-      borderWidth="1px"
-      borderColor={link.pinned ? `${accentColor}.500` : 'gray.700'}
-      p={4}
+      size="sm"
+      variant="outline"
       cursor="pointer"
-      position="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onClick={handleOpenLink}
     >
-      {/* Drag handle */}
-      {isHovered && (
-        <Box
-          position="absolute"
-          top={2}
-          left={2}
-          color="gray.500"
-          cursor="grab"
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <IconGripVertical size={16} />
-        </Box>
-      )}
-
-      {/* Action buttons */}
-      {isHovered && (
-        <Flex position="absolute" top={2} right={2} gap={1}>
-          <IconButton
-            aria-label={link.pinned ? 'Unpin' : 'Pin'}
-            size="xs"
-            variant="ghost"
-            colorPalette={accentColor}
-            onClick={handleTogglePin}
-          >
-            {link.pinned ? (
-              <IconPinnedFilled size={14} />
-            ) : (
-              <IconPin size={14} />
-            )}
-          </IconButton>
-          <IconButton
-            aria-label="Open in new tab"
-            size="xs"
-            variant="ghost"
-            colorPalette={accentColor}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenLink();
-            }}
-          >
-            <IconExternalLink size={14} />
-          </IconButton>
-          <IconButton
-            aria-label="Delete"
-            size="xs"
-            variant="ghost"
-            colorPalette={accentColor}
-            onClick={handleDelete}
-          >
-            <IconTrash size={14} />
-          </IconButton>
-        </Flex>
-      )}
-
-      {/* Pinned indicator */}
-      {link.pinned && !isHovered && (
-        <Box position="absolute" top={2} right={2} color={`${accentColor}.400`}>
-          <IconPinnedFilled size={14} />
-        </Box>
-      )}
-
-      {/* Content */}
-      <Flex direction="column" gap={2} pt={isHovered ? 4 : 0}>
-        <Flex align="center" gap={3}>
-          {link.favicon ? (
-            <Image
-              src={link.favicon}
-              alt=""
-              boxSize="24px"
-              borderRadius="sm"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          ) : (
+      <Card.Body p={0}>
+        <Flex>
+          {/* Favicon area */}
+          {showFavicon && (
             <Box
-              boxSize="24px"
-              borderRadius="sm"
-              bg="gray.600"
+              flexShrink={0}
+              w="60px"
               display="flex"
               alignItems="center"
               justifyContent="center"
+              borderRightWidth="1px"
+              borderColor="border.subtle"
             >
-              <Text fontSize="xs" color="gray.400">
-                {link.title.charAt(0).toUpperCase()}
-              </Text>
+              <Image
+                src={faviconUrl}
+                alt=""
+                boxSize="32px"
+                onError={() => setFaviconError(true)}
+              />
             </Box>
           )}
-          <Text
-            fontSize="sm"
-            fontWeight="medium"
-            color="white"
-            lineClamp={1}
-            flex={1}
-          >
-            {link.title}
-          </Text>
-        </Flex>
 
-        <Text as="span" fontSize="xs" color="gray.500" lineClamp={1}>
-          {domain}
-        </Text>
-      </Flex>
-    </Box>
+          {/* Contents */}
+          <Flex direction="column" flex={1} p={3} gap={1} minW={0}>
+            {/* Top row: drag | name | menu */}
+            <Flex align="center" gap={2}>
+              <Box
+                {...attributes}
+                {...listeners}
+                cursor="grab"
+                color="fg.muted"
+                onClick={(e) => e.stopPropagation()}
+                flexShrink={0}
+              >
+                <IconGripVertical size={16} />
+              </Box>
+              <Text fontSize="sm" fontWeight="medium" lineClamp={1} flex={1}>
+                {link.title}
+              </Text>
+              <Menu.Root>
+                <Menu.Trigger asChild>
+                  <IconButton
+                    aria-label="Link menu"
+                    size="xs"
+                    variant="ghost"
+                    colorPalette={accentColor}
+                    onClick={(e) => e.stopPropagation()}
+                    flexShrink={0}
+                  >
+                    <IconChevronDown size={14} />
+                  </IconButton>
+                </Menu.Trigger>
+                <Portal>
+                  <Menu.Positioner>
+                    <Menu.Content>
+                      <Menu.Item value="edit" onClick={handleStartEdit}>
+                        <IconPencil size={14} />
+                        Edit
+                      </Menu.Item>
+                      <Menu.Item
+                        value="delete"
+                        color="fg.error"
+                        _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                        onClick={handleDelete}
+                      >
+                        <IconTrash size={14} />
+                        Delete
+                      </Menu.Item>
+                    </Menu.Content>
+                  </Menu.Positioner>
+                </Portal>
+              </Menu.Root>
+            </Flex>
+
+            {/* Bottom row: address */}
+            <Text fontSize="xs" color="fg.muted" lineClamp={1}>
+              {link.url}
+            </Text>
+          </Flex>
+        </Flex>
+      </Card.Body>
+    </Card.Root>
   );
 }
