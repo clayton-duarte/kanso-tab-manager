@@ -34,10 +34,10 @@ If you choose to enable sync:
 
 The extension requests the following permissions:
 
-| Permission | Purpose |
-|------------|---------|
-| `storage` | Store your profiles, workspaces, and preferences locally |
-| `tabs` | Switch tabs when changing workspaces, open links, and preserve pinned tabs |
+| Permission | Purpose                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| `storage`  | Store your profiles, workspaces, and preferences locally                   |
+| `tabs`     | Switch tabs when changing workspaces, open links, and preserve pinned tabs |
 
 ## What We Don't Do
 
@@ -65,4 +65,4 @@ For privacy concerns or questions, please open an issue on our GitHub repository
 
 ---
 
-*Last updated: February 2026*
+_Last updated: February 2026_
