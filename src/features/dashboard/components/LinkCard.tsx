@@ -90,15 +90,40 @@ export function LinkCard({ link }: LinkCardProps) {
     }
   };
 
-  // Extract favicon URL using Google's service
-  const faviconUrl = (() => {
+  // Extract favicon URL - try multiple sources for better coverage
+  const getFaviconUrls = () => {
     try {
-      const domain = new URL(link.url).hostname;
-      return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+      const urlObj = new URL(link.url);
+      const domain = urlObj.hostname;
+      const origin = urlObj.origin;
+
+      // Return multiple favicon sources to try
+      return [
+        // Direct site favicon
+        `${origin}/favicon.ico`,
+        // DuckDuckGo (often has good coverage)
+        `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+        // Google (good fallback)
+        `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+      ];
     } catch {
-      return null;
+      return [];
     }
-  })();
+  };
+
+  const faviconSources = getFaviconUrls();
+  const [currentFaviconIndex, setCurrentFaviconIndex] = useState(0);
+
+  const faviconUrl = faviconSources[currentFaviconIndex] || null;
+
+  const handleFaviconError = () => {
+    // Try next favicon source
+    if (currentFaviconIndex < faviconSources.length - 1) {
+      setCurrentFaviconIndex((prev) => prev + 1);
+    } else {
+      setFaviconError(true);
+    }
+  };
 
   const showFavicon = faviconUrl && !faviconError;
 
@@ -190,7 +215,7 @@ export function LinkCard({ link }: LinkCardProps) {
                 src={faviconUrl}
                 alt=""
                 boxSize="24px"
-                onError={() => setFaviconError(true)}
+                onError={handleFaviconError}
               />
             </Box>
           )}
