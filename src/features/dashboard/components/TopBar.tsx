@@ -1,7 +1,6 @@
 import {
   Box,
   Flex,
-  Tabs,
   IconButton,
   Text,
   Input,
@@ -43,21 +42,23 @@ import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
 import type { Profile } from '@/features/github/types';
 
-interface SortableProfileTabProps {
+interface SortableProfileItemProps {
   profile: Profile;
   isActive: boolean;
   accentColor: string;
+  onSwitch: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function SortableProfileTab({
+function SortableProfileItem({
   profile,
   isActive,
   accentColor,
+  onSwitch,
   onEdit,
   onDelete,
-}: SortableProfileTabProps) {
+}: SortableProfileItemProps) {
   const {
     attributes,
     listeners,
@@ -74,40 +75,41 @@ function SortableProfileTab({
   };
 
   return (
-    <Tabs.Trigger
+    <Flex
       ref={setNodeRef}
       style={style}
-      value={profile.id}
-      pl={2}
-      pr={0}
-      fontSize="sm"
-      display="flex"
-      alignItems="center"
+      align="center"
       gap={2}
+      px={2}
+      py={2}
+      cursor="pointer"
+      bg={isActive ? `${accentColor}.subtle` : 'transparent'}
+      borderBottomWidth="2px"
+      borderBottomColor={isActive ? `${accentColor}.border` : 'transparent'}
+      onClick={onSwitch}
     >
       <Box
         {...attributes}
         {...listeners}
         cursor="grab"
-        color={isActive ? `${accentColor}.400` : 'fg.subtle'}
-        _hover={{ color: isActive ? `${accentColor}.300` : 'fg.muted' }}
+        color={`${accentColor}.border`}
         onClick={(e) => e.stopPropagation()}
       >
-        <IconGripVertical size={12} />
+        <IconGripVertical size={14} />
       </Box>
-      <Text as="span" lineClamp={1}>
+      <Text fontSize="sm" lineClamp={1}>
         {profile.name}
       </Text>
       <Menu.Root>
         <Menu.Trigger asChild>
           <IconButton
             aria-label="Profile menu"
-            size="2xs"
+            size="xs"
             variant="ghost"
             colorPalette={accentColor}
             onClick={(e) => e.stopPropagation()}
           >
-            <IconChevronDown size={12} />
+            <IconChevronDown size={14} />
           </IconButton>
         </Menu.Trigger>
         <Portal>
@@ -117,12 +119,7 @@ function SortableProfileTab({
                 <IconPencil size={14} />
                 Edit
               </Menu.Item>
-              <Menu.Item
-                value="delete"
-                color="fg.error"
-                _hover={{ bg: 'bg.error', color: 'fg.error' }}
-                onClick={onDelete}
-              >
+              <Menu.Item value="delete" color="fg.error" onClick={onDelete}>
                 <IconTrash size={14} />
                 Delete
               </Menu.Item>
@@ -130,7 +127,7 @@ function SortableProfileTab({
           </Menu.Positioner>
         </Portal>
       </Menu.Root>
-    </Tabs.Trigger>
+    </Flex>
   );
 }
 
@@ -247,143 +244,126 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
       as="header"
       bg="bg"
       borderBottomWidth="1px"
-      borderColor="border.muted"
+      borderColor="border"
       pr={4}
     >
       <Flex justify="space-between" align="center">
         <HStack gap={0}>
-          <Box
-            w="240px"
-            p={4}
-            borderRightWidth="1px"
-            borderColor="border.muted"
-          >
+          <Box w="240px" px={4} borderRightWidth="1px" borderColor="border">
             <Text
               fontSize="lg"
               fontWeight="bold"
-              color={`${accentColor}.400`}
+              color={`${accentColor}.solid`}
               letterSpacing="tight"
             >
               Kanso
             </Text>
           </Box>
 
-          <Tabs.Root
-            value={activeProfileId || ''}
-            onValueChange={(details) => switchProfile(details.value)}
-            colorPalette={accentColor}
-            alignSelf="end"
-            variant="line"
-            size="lg"
-          >
-            <Tabs.List bg="transparent" borderBottomWidth={0}>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+          <HStack gap={0}>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={profileIds}
+                strategy={horizontalListSortingStrategy}
               >
-                <SortableContext
-                  items={profileIds}
-                  strategy={horizontalListSortingStrategy}
-                >
-                  {profiles.map((profile) =>
-                    editingProfileId === profile.id ? (
-                      <HStack key={profile.id} gap={1} px={2}>
-                        <Input
-                          size="sm"
-                          value={editingProfileName}
-                          onChange={(e) =>
-                            setEditingProfileName(e.target.value)
-                          }
-                          onKeyDown={handleRenameKeyDown}
-                          autoFocus
-                          width="100px"
-                          variant="outline"
-                        />
-                        <IconButton
-                          aria-label="Confirm"
-                          size="2xs"
-                          variant="ghost"
-                          colorPalette={accentColor}
-                          onClick={handleRenameProfile}
-                        >
-                          <IconCheck size={12} />
-                        </IconButton>
-                        <IconButton
-                          aria-label="Cancel"
-                          size="2xs"
-                          variant="ghost"
-                          colorPalette={accentColor}
-                          onClick={() => {
-                            setEditingProfileId(null);
-                            setEditingProfileName('');
-                          }}
-                        >
-                          <IconX size={12} />
-                        </IconButton>
-                      </HStack>
-                    ) : (
-                      <SortableProfileTab
-                        key={profile.id}
-                        profile={profile}
-                        isActive={profile.id === activeProfileId}
-                        accentColor={accentColor}
-                        onEdit={() => handleStartEdit(profile.id, profile.name)}
-                        onDelete={() => handleDeleteProfile(profile.id)}
+                {profiles.map((profile) =>
+                  editingProfileId === profile.id ? (
+                    <HStack key={profile.id} gap={1} px={2}>
+                      <Input
+                        size="sm"
+                        value={editingProfileName}
+                        onChange={(e) => setEditingProfileName(e.target.value)}
+                        onKeyDown={handleRenameKeyDown}
+                        autoFocus
+                        width="100px"
+                        variant="outline"
                       />
-                    )
-                  )}
-                </SortableContext>
-              </DndContext>
+                      <IconButton
+                        aria-label="Confirm"
+                        size="xs"
+                        variant="ghost"
+                        colorPalette={accentColor}
+                        onClick={handleRenameProfile}
+                      >
+                        <IconCheck size={14} />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        colorPalette={accentColor}
+                        onClick={() => {
+                          setEditingProfileId(null);
+                          setEditingProfileName('');
+                        }}
+                      >
+                        <IconX size={14} />
+                      </IconButton>
+                    </HStack>
+                  ) : (
+                    <SortableProfileItem
+                      key={profile.id}
+                      profile={profile}
+                      isActive={profile.id === activeProfileId}
+                      accentColor={accentColor}
+                      onSwitch={() => switchProfile(profile.id)}
+                      onEdit={() => handleStartEdit(profile.id, profile.name)}
+                      onDelete={() => handleDeleteProfile(profile.id)}
+                    />
+                  )
+                )}
+              </SortableContext>
+            </DndContext>
 
-              {isCreating ? (
-                <HStack gap={1} ml={2}>
-                  <Input
-                    size="sm"
-                    placeholder="Profile name"
-                    value={newProfileName}
-                    onChange={(e) => setNewProfileName(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    autoFocus
-                    width="120px"
-                    variant="outline"
-                  />
-                  <IconButton
-                    aria-label="Confirm"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={handleCreateProfile}
-                  >
-                    <IconCheck size={14} />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Cancel"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={() => {
-                      setIsCreating(false);
-                      setNewProfileName('');
-                    }}
-                  >
-                    <IconX size={14} />
-                  </IconButton>
-                </HStack>
-              ) : (
+            {isCreating ? (
+              <HStack gap={1} px={2}>
+                <Input
+                  size="sm"
+                  placeholder="Profile name"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  autoFocus
+                  width="120px"
+                  variant="outline"
+                />
                 <IconButton
-                  aria-label="Add profile"
+                  aria-label="Confirm"
+                  size="xs"
+                  colorPalette={accentColor}
+                  onClick={handleCreateProfile}
+                >
+                  <IconCheck size={14} />
+                </IconButton>
+                <IconButton
+                  aria-label="Cancel"
                   size="xs"
                   variant="ghost"
                   colorPalette={accentColor}
-                  ml={2}
-                  onClick={() => setIsCreating(true)}
+                  onClick={() => {
+                    setIsCreating(false);
+                    setNewProfileName('');
+                  }}
                 >
-                  <IconPlus size={16} />
+                  <IconX size={14} />
                 </IconButton>
-              )}
-            </Tabs.List>
-          </Tabs.Root>
+              </HStack>
+            ) : (
+              <IconButton
+                aria-label="Add profile"
+                size="xs"
+                variant="ghost"
+                colorPalette={accentColor}
+                onClick={() => setIsCreating(true)}
+              >
+                <IconPlus size={16} />
+              </IconButton>
+            )}
+          </HStack>
         </HStack>
 
         <HStack gap={2}>

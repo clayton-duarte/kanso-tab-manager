@@ -75,22 +75,20 @@ function SortableWorkspaceItem({
       ref={setNodeRef}
       style={style}
       align="center"
-      gap={1}
+      gap={2}
       px={2}
       py={2}
       cursor="pointer"
-      bg={isActive ? `${accentColor}.900/40` : 'transparent'}
-      color={isActive ? `${accentColor}.300` : 'fg.muted'}
+      bg={isActive ? `${accentColor}.subtle` : 'transparent'}
       borderLeftWidth="2px"
-      borderLeftColor={isActive ? `${accentColor}.500` : 'transparent'}
+      borderLeftColor={isActive ? `${accentColor}.border` : 'transparent'}
       onClick={onSwitch}
     >
       <Box
         {...attributes}
         {...listeners}
         cursor="grab"
-        color="fg.subtle"
-        _hover={{ color: 'fg' }}
+        color={`${accentColor}.border`}
         onClick={(e) => e.stopPropagation()}
       >
         <IconGripVertical size={14} />
@@ -117,12 +115,7 @@ function SortableWorkspaceItem({
                 <IconPencil size={14} />
                 Edit
               </Menu.Item>
-              <Menu.Item
-                value="delete"
-                color="fg.error"
-                _hover={{ bg: 'bg.error', color: 'fg.error' }}
-                onClick={onDelete}
-              >
+              <Menu.Item value="delete" color="fg.error" onClick={onDelete}>
                 <IconTrash size={14} />
                 Delete
               </Menu.Item>
@@ -240,7 +233,7 @@ export function Sidebar() {
       as="aside"
       bg="bg.subtle"
       borderRightWidth="1px"
-      borderColor="border.muted"
+      borderColor="border"
       w="240px"
       minW="240px"
       h="100%"

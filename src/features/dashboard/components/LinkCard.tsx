@@ -129,7 +129,7 @@ export function LinkCard({ link }: LinkCardProps) {
 
   if (isEditing) {
     return (
-      <Card.Root ref={setNodeRef} style={style} size="sm" variant="outline">
+      <Card.Root ref={setNodeRef} style={style} size="sm" variant="subtle">
         <Card.Body p={3}>
           <VStack gap={2} align="stretch">
             <Input
@@ -179,7 +179,7 @@ export function LinkCard({ link }: LinkCardProps) {
       ref={setNodeRef}
       style={style}
       size="sm"
-      variant="outline"
+      variant="subtle"
       cursor="pointer"
       onClick={handleOpenLink}
     >
@@ -260,7 +260,6 @@ export function LinkCard({ link }: LinkCardProps) {
                   <Menu.Item
                     value="delete"
                     color="fg.error"
-                    _hover={{ bg: 'bg.error', color: 'fg.error' }}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDelete();
