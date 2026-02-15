@@ -140,8 +140,8 @@ export interface AppActions {
   reorderWorkspaces: (oldIndex: number, newIndex: number) => void;
 
   // Link CRUD (optimistic, sync debounced)
-  /** Add a link to the active workspace */
-  addLink: (url: string, title: string, favicon?: string) => void;
+  /** Add a link to the active workspace, returns the link ID */
+  addLink: (url: string, title: string, favicon?: string) => string | undefined;
   /** Remove a link from the active workspace */
   removeLink: (linkId: string) => void;
   /** Update a link's properties */

@@ -1425,10 +1425,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   addLink: (url: string, title: string, favicon?: string) => {
     const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
       get();
-    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return undefined;
 
+    const linkId = nanoid();
     const newLink: LinkItem = {
-      id: nanoid(),
+      id: linkId,
       url,
       title,
       favicon,
@@ -1461,6 +1462,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // Queue debounced sync to Gist
     get().saveWorkspace();
+
+    return linkId;
   },
 
   removeLink: (linkId: string) => {

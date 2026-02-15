@@ -1,7 +1,7 @@
 import { Box, Text, Flex } from '@chakra-ui/react';
 import { IconLink } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
-import { parseDroppedData } from '@/shared/utils/urlParser';
+import { parseDroppedData, fetchPageTitle } from '@/shared/utils/urlParser';
 import {
   useAppStore,
   selectActiveWorkspaceData,
@@ -14,6 +14,7 @@ interface DropZoneProps {
 export function DropZone({ children }: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const addLink = useAppStore((state) => state.addLink);
+  const updateLink = useAppStore((state) => state.updateLink);
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const accentColor = useAppStore((state) => state.accentColor);
 
@@ -38,7 +39,7 @@ export function DropZone({ children }: DropZoneProps) {
     setIsDragOver(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
@@ -46,7 +47,18 @@ export function DropZone({ children }: DropZoneProps) {
     const parsed = parseDroppedData(e.dataTransfer);
 
     if (parsed) {
-      addLink(parsed.url, parsed.title, parsed.favicon);
+      // Add link immediately with URL-based title for instant feedback
+      const linkId = addLink(parsed.url, parsed.title, parsed.favicon);
+
+      // Fetch actual page title in background and update if successful
+      if (linkId) {
+        fetchPageTitle(parsed.url).then((fetchedTitle) => {
+          // Only update if the fetched title is different from the initial one
+          if (fetchedTitle !== parsed.title) {
+            updateLink(linkId, { title: fetchedTitle });
+          }
+        });
+      }
     }
   };
 

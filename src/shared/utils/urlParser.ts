@@ -8,6 +8,43 @@ export interface ParsedLink {
 }
 
 /**
+ * Fetch the actual page title from a URL
+ * Falls back to URL-based title if fetch fails (CORS, network error, etc.)
+ */
+export async function fetchPageTitle(url: string): Promise<string> {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/html',
+      },
+    });
+
+    if (!response.ok) {
+      return extractTitleFromUrl(url);
+    }
+
+    const html = await response.text();
+
+    // Parse HTML to find title tag
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch && titleMatch[1]) {
+      const title = titleMatch[1].trim();
+      // Clean up common title patterns (e.g., "Page Title | Site Name")
+      // Return the first meaningful part
+      if (title.length > 0 && title.length < 200) {
+        return title;
+      }
+    }
+
+    return extractTitleFromUrl(url);
+  } catch {
+    // CORS or network error - fallback to URL-based title
+    return extractTitleFromUrl(url);
+  }
+}
+
+/**
  * Extract URL from various drag data transfer formats
  */
 export function parseDroppedData(
