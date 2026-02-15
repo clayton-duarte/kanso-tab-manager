@@ -1,4 +1,14 @@
-import { Box, Grid, GridItem, Text, Flex, VStack } from '@chakra-ui/react';
+import {
+  Box,
+  Grid,
+  GridItem,
+  Text,
+  Flex,
+  VStack,
+  IconButton,
+  Input,
+  HStack,
+} from '@chakra-ui/react';
 import {
   DndContext,
   closestCenter,
@@ -13,7 +23,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { LinkCard } from './components/LinkCard';
@@ -24,11 +35,94 @@ import {
   useAppStore,
   selectActiveWorkspaceData,
 } from '@/features/store/useAppStore';
+import {
+  isValidUrl,
+  extractTitleFromUrl,
+  getFaviconUrl,
+  fetchPageTitle,
+} from '@/shared/utils/urlParser';
 
 export function DashboardLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [newLinkUrl, setNewLinkUrl] = useState('');
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const reorderLinks = useAppStore((state) => state.reorderLinks);
+  const addLink = useAppStore((state) => state.addLink);
+  const updateLink = useAppStore((state) => state.updateLink);
+  const accentColor = useAppStore((state) => state.accentColor);
+
+  // Handle adding a link
+  const handleAddLink = useCallback(
+    (url: string) => {
+      const trimmedUrl = url.trim();
+      if (!trimmedUrl) return;
+
+      // Add https:// if no protocol
+      const fullUrl = trimmedUrl.match(/^https?:\/\//)
+        ? trimmedUrl
+        : `https://${trimmedUrl}`;
+
+      if (!isValidUrl(fullUrl)) return;
+
+      const title = extractTitleFromUrl(fullUrl);
+      const favicon = getFaviconUrl(fullUrl);
+      const linkId = addLink(fullUrl, title, favicon);
+
+      // Fetch actual title in background
+      if (linkId) {
+        fetchPageTitle(fullUrl).then((fetchedTitle) => {
+          if (fetchedTitle !== title) {
+            updateLink(linkId, { title: fetchedTitle });
+          }
+        });
+      }
+
+      setNewLinkUrl('');
+      setIsAddingLink(false);
+    },
+    [addLink, updateLink]
+  );
+
+  // Handle paste event globally
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      // Don't capture paste if user is typing in an input
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      const text = e.clipboardData?.getData('text/plain')?.trim();
+      if (text && isValidUrl(text)) {
+        e.preventDefault();
+        handleAddLink(text);
+      } else if (text) {
+        // Try adding https:// prefix
+        const withProtocol = `https://${text}`;
+        if (isValidUrl(withProtocol)) {
+          e.preventDefault();
+          handleAddLink(text);
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handleAddLink]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddLink(newLinkUrl);
+    } else if (e.key === 'Escape') {
+      setIsAddingLink(false);
+      setNewLinkUrl('');
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -92,10 +186,57 @@ export function DashboardLayout() {
                 <Text fontSize="xl" fontWeight="bold" color="white">
                   {activeWorkspaceData.name}
                 </Text>
-                <Text fontSize="sm" color="gray.500">
-                  {links.length} {links.length === 1 ? 'link' : 'links'}
-                </Text>
+                <HStack gap={2}>
+                  <Text fontSize="sm" color="gray.500">
+                    {links.length} {links.length === 1 ? 'link' : 'links'}
+                  </Text>
+                  <IconButton
+                    aria-label="Add link"
+                    size="xs"
+                    variant="ghost"
+                    colorPalette={accentColor}
+                    onClick={() => setIsAddingLink(true)}
+                  >
+                    <IconPlus size={16} />
+                  </IconButton>
+                </HStack>
               </Flex>
+
+              {/* Add link form */}
+              {isAddingLink && (
+                <HStack gap={2} mb={4}>
+                  <Input
+                    placeholder="Paste or type URL..."
+                    value={newLinkUrl}
+                    onChange={(e) => setNewLinkUrl(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    size="sm"
+                    variant="outline"
+                    flex={1}
+                  />
+                  <IconButton
+                    aria-label="Add"
+                    size="sm"
+                    variant="solid"
+                    colorPalette={accentColor}
+                    onClick={() => handleAddLink(newLinkUrl)}
+                  >
+                    <IconCheck size={16} />
+                  </IconButton>
+                  <IconButton
+                    aria-label="Cancel"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsAddingLink(false);
+                      setNewLinkUrl('');
+                    }}
+                  >
+                    <IconX size={16} />
+                  </IconButton>
+                </HStack>
+              )}
 
               <DndContext
                 sensors={sensors}
