@@ -159,93 +159,96 @@ export function LinkCard({ link }: LinkCardProps) {
       onClick={handleOpenLink}
     >
       <Card.Body p={0}>
-        <Flex>
+        <Flex align="center">
+          {/* Drag handle */}
+          <Box
+            {...attributes}
+            {...listeners}
+            cursor="grab"
+            color="fg.muted"
+            onClick={(e) => e.stopPropagation()}
+            flexShrink={0}
+            px={3}
+            py={3}
+            alignSelf="stretch"
+            display="flex"
+            alignItems="center"
+          >
+            <IconGripVertical size={16} />
+          </Box>
+
           {/* Favicon area */}
           {showFavicon && (
             <Box
               flexShrink={0}
-              w="60px"
+              w="40px"
               display="flex"
               alignItems="center"
               justifyContent="center"
-              borderRightWidth="1px"
-              borderColor="border.subtle"
             >
               <Image
                 src={faviconUrl}
                 alt=""
-                boxSize="32px"
+                boxSize="24px"
                 onError={() => setFaviconError(true)}
               />
             </Box>
           )}
 
           {/* Contents */}
-          <Flex direction="column" flex={1} p={3} gap={1} minW={0}>
-            {/* Top row: drag | name | menu */}
-            <Flex align="center" gap={2}>
-              <Box
-                {...attributes}
-                {...listeners}
-                cursor="grab"
-                color="fg.muted"
-                onClick={(e) => e.stopPropagation()}
-                flexShrink={0}
-              >
-                <IconGripVertical size={16} />
-              </Box>
-              <Text fontSize="sm" fontWeight="medium" lineClamp={1} flex={1}>
-                {link.title}
-              </Text>
-              <Menu.Root open={menuOpen} onOpenChange={(e) => setMenuOpen(e.open)}>
-                <Menu.Trigger asChild>
-                  <IconButton
-                    aria-label="Link menu"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={(e) => e.stopPropagation()}
-                    flexShrink={0}
-                  >
-                    <IconChevronDown size={14} />
-                  </IconButton>
-                </Menu.Trigger>
-                <Portal>
-                  <Menu.Positioner>
-                    <Menu.Content onClick={(e) => e.stopPropagation()}>
-                      <Menu.Item
-                        value="edit"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStartEdit();
-                        }}
-                      >
-                        <IconPencil size={14} />
-                        Edit
-                      </Menu.Item>
-                      <Menu.Item
-                        value="delete"
-                        color="fg.error"
-                        _hover={{ bg: 'bg.error', color: 'fg.error' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete();
-                        }}
-                      >
-                        <IconTrash size={14} />
-                        Delete
-                      </Menu.Item>
-                    </Menu.Content>
-                  </Menu.Positioner>
-                </Portal>
-              </Menu.Root>
-            </Flex>
-
-            {/* Bottom row: address */}
+          <Flex direction="column" flex={1} py={2} gap={0} minW={0}>
+            <Text fontSize="sm" fontWeight="medium" lineClamp={1}>
+              {link.title}
+            </Text>
             <Text fontSize="xs" color="fg.muted" lineClamp={1}>
               {link.url}
             </Text>
           </Flex>
+
+          {/* Menu */}
+          <Menu.Root open={menuOpen} onOpenChange={(e) => setMenuOpen(e.open)}>
+            <Menu.Trigger asChild>
+              <IconButton
+                aria-label="Link menu"
+                size="xs"
+                variant="ghost"
+                colorPalette={accentColor}
+                onClick={(e) => e.stopPropagation()}
+                flexShrink={0}
+                mr={2}
+              >
+                <IconChevronDown size={14} />
+              </IconButton>
+            </Menu.Trigger>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content onClick={(e) => e.stopPropagation()}>
+                  <Menu.Item
+                    value="edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStartEdit();
+                    }}
+                  >
+                    <IconPencil size={14} />
+                    Edit
+                  </Menu.Item>
+                  <Menu.Item
+                    value="delete"
+                    color="fg.error"
+                    _hover={{ bg: 'bg.error', color: 'fg.error' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete();
+                    }}
+                  >
+                    <IconTrash size={14} />
+                    Delete
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         </Flex>
       </Card.Body>
     </Card.Root>

@@ -87,7 +87,7 @@ export function DashboardLayout() {
       <GridItem overflow="auto">
         <DropZone>
           {activeWorkspaceData && (
-            <Box maxW="700px" mx="auto">
+            <Box maxW="700px" mx="auto" p={6}>
               <Flex justify="space-between" align="center" mb={4}>
                 <Text fontSize="xl" fontWeight="bold" color="white">
                   {activeWorkspaceData.name}
