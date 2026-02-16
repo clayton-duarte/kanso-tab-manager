@@ -1210,7 +1210,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // WORKSPACE CRUD (optimistic, sync in background)
   // ============================================================================
 
-  createWorkspace: async (name: string) => {
+  createWorkspace: async (name: string, initialLinks?: Array<{ url: string; title: string; favicon?: string }>) => {
     const { profiles, activeProfileId, pat, gistId } = get();
     const profile = profiles.find((p) => p.id === activeProfileId);
 
@@ -1218,6 +1218,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     const filename = generateWorkspaceFilename(profile.name, name);
     const workspaceId = `ws-${filename}`;
+
+    // Convert initial links to LinkItems with IDs
+    const links: LinkItem[] = (initialLinks || []).map((link) => ({
+      id: nanoid(),
+      url: link.url,
+      title: link.title,
+      favicon: link.favicon,
+      pinned: false,
+    }));
 
     const newWorkspace: WorkspaceMeta = {
       id: workspaceId,
@@ -1231,7 +1240,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       profile: profile.name,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      links: [],
+      links,
     };
 
     // Optimistic update

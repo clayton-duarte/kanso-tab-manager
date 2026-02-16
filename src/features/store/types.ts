@@ -142,8 +142,8 @@ export interface AppActions {
   reorderProfiles: (oldIndex: number, newIndex: number) => void;
 
   // Workspace CRUD (optimistic, sync in background)
-  /** Create a new workspace */
-  createWorkspace: (name: string) => Promise<void>;
+  /** Create a new workspace, optionally with initial links */
+  createWorkspace: (name: string, initialLinks?: Array<{ url: string; title: string; favicon?: string }>) => Promise<void>;
   /** Delete a workspace */
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   /** Rename a workspace */

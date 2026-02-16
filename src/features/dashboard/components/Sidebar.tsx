@@ -7,6 +7,7 @@ import {
   Input,
   Popover,
   Portal,
+  Checkbox,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -228,6 +229,7 @@ export function Sidebar() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [useCurrentTabs, setUseCurrentTabs] = useState(false);
 
   // Get current profile name
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
@@ -240,11 +242,30 @@ export function Sidebar() {
   const handleCreateWorkspace = async () => {
     if (newWorkspaceName.trim()) {
       const name = newWorkspaceName.trim();
+      
+      // Get current tabs if checkbox is checked (exclude pinned tabs)
+      let initialLinks: Array<{ url: string; title: string; favicon?: string }> = [];
+      if (useCurrentTabs && typeof chrome !== 'undefined' && chrome.tabs) {
+        try {
+          const tabs = await chrome.tabs.query({ currentWindow: true });
+          initialLinks = tabs
+            .filter((tab) => tab.url && tab.url.startsWith('http') && !tab.pinned)
+            .map((tab) => ({
+              url: tab.url!,
+              title: tab.title || tab.url!,
+              favicon: tab.favIconUrl,
+            }));
+        } catch {
+          // Silently ignore - create without tabs
+        }
+      }
+      
       // Reset UI immediately (optimistic)
       setNewWorkspaceName('');
+      setUseCurrentTabs(false);
       setCreateOpen(false);
       // Sync in background
-      await createWorkspace(name);
+      await createWorkspace(name, initialLinks.length > 0 ? initialLinks : undefined);
     }
   };
 
@@ -254,6 +275,7 @@ export function Sidebar() {
     } else if (e.key === 'Escape') {
       setCreateOpen(false);
       setNewWorkspaceName('');
+      setUseCurrentTabs(false);
     }
   };
 
@@ -321,7 +343,10 @@ export function Sidebar() {
           open={createOpen}
           onOpenChange={(e) => {
             setCreateOpen(e.open);
-            if (!e.open) setNewWorkspaceName('');
+            if (!e.open) {
+              setNewWorkspaceName('');
+              setUseCurrentTabs(false);
+            }
           }}
           positioning={{ placement: 'bottom-end' }}
         >
@@ -337,7 +362,7 @@ export function Sidebar() {
           </Popover.Trigger>
           <Portal>
             <Popover.Positioner>
-              <Popover.Content w="200px">
+              <Popover.Content w="220px">
                 <Popover.Body p={3}>
                   <VStack gap={3} align="stretch">
                     <Box>
@@ -354,6 +379,18 @@ export function Sidebar() {
                         variant="outline"
                       />
                     </Box>
+                    <Checkbox.Root
+                      checked={useCurrentTabs}
+                      onCheckedChange={(e) => setUseCurrentTabs(!!e.checked)}
+                      colorPalette={accentColor}
+                      size="sm"
+                    >
+                      <Checkbox.HiddenInput />
+                      <Checkbox.Control />
+                      <Checkbox.Label>
+                        <Text fontSize="xs">Use current tabs</Text>
+                      </Checkbox.Label>
+                    </Checkbox.Root>
                     <Flex justify="flex-end" gap={1}>
                       <IconButton
                         aria-label="Cancel"
@@ -362,6 +399,7 @@ export function Sidebar() {
                         onClick={() => {
                           setCreateOpen(false);
                           setNewWorkspaceName('');
+                          setUseCurrentTabs(false);
                         }}
                       >
                         <IconX size={14} />
