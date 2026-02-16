@@ -8,6 +8,8 @@ import {
   Popover,
   Portal,
   Checkbox,
+  Dialog,
+  Button,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -57,6 +59,7 @@ function SortableWorkspaceItem({
 }: SortableWorkspaceItemProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(workspace.name);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Reset form when popover opens
   useEffect(() => {
@@ -92,7 +95,12 @@ function SortableWorkspaceItem({
   };
 
   const handleDelete = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
     onDelete();
+    setDeleteConfirmOpen(false);
     setOpen(false);
   };
 
@@ -209,6 +217,47 @@ function SortableWorkspaceItem({
           </Popover.Positioner>
         </Portal>
       </Popover.Root>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog.Root
+        open={deleteConfirmOpen}
+        onOpenChange={(e) => setDeleteConfirmOpen(e.open)}
+        placement="center"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Delete Workspace?</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <Text color="fg.muted">
+                  Are you sure you want to delete "{workspace.name}"? All links
+                  in this workspace will be lost. This action cannot be undone.
+                </Text>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Flex gap={2}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeleteConfirmOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="solid"
+                    colorPalette="red"
+                    onClick={confirmDelete}
+                  >
+                    Delete
+                  </Button>
+                </Flex>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
     </Flex>
   );
 }

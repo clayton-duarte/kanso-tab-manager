@@ -8,6 +8,8 @@ import {
   Image,
   Popover,
   Portal,
+  Dialog,
+  Button,
 } from '@chakra-ui/react';
 import {
   IconChevronDown,
@@ -51,6 +53,7 @@ export function LinkEditPopover({
   const [url, setUrl] = useState(link.url);
   const [customFavicon, setCustomFavicon] = useState(link.favicon || '');
   const [faviconError, setFaviconError] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Reset form when popover opens
   useEffect(() => {
@@ -96,7 +99,12 @@ export function LinkEditPopover({
   };
 
   const handleDelete = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = () => {
     onDelete();
+    setDeleteConfirmOpen(false);
     setOpen(false);
   };
 
@@ -115,6 +123,7 @@ export function LinkEditPopover({
   };
 
   return (
+    <>
     <Popover.Root
       open={open}
       onOpenChange={(e) => {
@@ -258,5 +267,47 @@ export function LinkEditPopover({
         </Popover.Positioner>
       </Portal>
     </Popover.Root>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog.Root
+        open={deleteConfirmOpen}
+        onOpenChange={(e) => setDeleteConfirmOpen(e.open)}
+        placement="center"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Delete Link?</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <Text color="fg.muted">
+                  Are you sure you want to delete this link? This action cannot
+                  be undone.
+                </Text>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Flex gap={2}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeleteConfirmOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="solid"
+                    colorPalette="red"
+                    onClick={confirmDelete}
+                  >
+                    Delete
+                  </Button>
+                </Flex>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
+    </>
   );
 }
