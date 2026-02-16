@@ -148,6 +148,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         profiles: portable.profiles,
         workspaces: portable.workspaces,
         workspaceDataCache: portable.workspaceDataCache,
+        pinnedLinksCache: portable.pinnedLinksCache,
         lastSyncedAt: portable.lastSyncedAt,
         // UI
         isAuthenticated: true,
@@ -1664,6 +1665,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       },
     }));
 
+    // Open the tab as pinned
+    chrome.tabs.create({ url, pinned: true, active: false }).catch(() => {
+      // Silently ignore - tab creation is non-critical
+    });
+
     // Save to profile settings (background, non-blocking)
     if (pat && gistId) {
       saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedLinks }, pat).catch(() => {
@@ -1682,6 +1688,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!profile) return;
 
     const currentLinks = pinnedLinksCache[activeProfileId] || [];
+    const linkToRemove = currentLinks.find((link) => link.id === linkId);
     const updatedLinks = currentLinks.filter((link) => link.id !== linkId);
 
     set((state) => ({
@@ -1690,6 +1697,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         [activeProfileId]: updatedLinks,
       },
     }));
+
+    // Close the pinned tab
+    if (linkToRemove) {
+      chrome.tabs.query({ pinned: true }).then((tabs) => {
+        const tab = tabs.find((t) => t.url === linkToRemove.url);
+        if (tab?.id) {
+          chrome.tabs.remove(tab.id).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     // Save to profile settings (background, non-blocking)
     if (pat && gistId) {
@@ -1806,7 +1823,100 @@ export const useAppStore = create<AppStore>((set, get) => ({
       },
     }));
 
+    // Pin the browser tab
+    chrome.tabs.query({}).then((tabs) => {
+      const tab = tabs.find((t) => t.url === linkToMove.url);
+      if (tab?.id) {
+        chrome.tabs.update(tab.id, { pinned: true }).catch(() => {});
+      }
+    }).catch(() => {});
+
     // Save workspace change
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedWorkspaceData,
+      },
+      pinnedLinksCache: {
+        ...pinnedLinksCache,
+        [activeProfileId]: updatedPinnedLinks,
+      },
+    });
+
+    // Save to profile settings (background)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedPinnedLinks }, pat).catch(
+        () => {}
+      );
+    }
+
+    // Queue workspace sync
+    get().saveWorkspace();
+  },
+
+  movePinnedToWorkspace: (linkId: string) => {
+    const {
+      activeProfileId,
+      activeWorkspaceId,
+      workspaceDataCache,
+      pinnedLinksCache,
+      profiles,
+      workspaces,
+      pat,
+      gistId,
+    } = get();
+    if (!activeProfileId || !activeWorkspaceId) return;
+    if (!workspaceDataCache[activeWorkspaceId]) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return;
+
+    const currentPinnedLinks = pinnedLinksCache[activeProfileId] || [];
+    const pinnedLinkToMove = currentPinnedLinks.find((link) => link.id === linkId);
+    if (!pinnedLinkToMove) return;
+
+    // Create workspace link from pinned link
+    const workspaceLink: LinkItem = {
+      id: nanoid(),
+      url: pinnedLinkToMove.url,
+      title: pinnedLinkToMove.title,
+      favicon: pinnedLinkToMove.favicon,
+      pinned: false,
+    };
+
+    // Remove from pinned links
+    const updatedPinnedLinks = currentPinnedLinks.filter((link) => link.id !== linkId);
+
+    // Add to workspace
+    const currentData = workspaceDataCache[activeWorkspaceId];
+    const updatedWorkspaceData = {
+      ...currentData,
+      links: [...currentData.links, workspaceLink],
+      updatedAt: Date.now(),
+    };
+
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedWorkspaceData,
+      },
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: updatedPinnedLinks,
+      },
+    }));
+
+    // Unpin the browser tab
+    chrome.tabs.query({}).then((tabs) => {
+      const tab = tabs.find((t) => t.url === pinnedLinkToMove.url);
+      if (tab?.id) {
+        chrome.tabs.update(tab.id, { pinned: false }).catch(() => {});
+      }
+    }).catch(() => {});
+
+    // Save changes
     savePortable({
       profiles,
       workspaces,

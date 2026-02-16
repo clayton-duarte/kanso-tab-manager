@@ -2,28 +2,16 @@ import {
   Box,
   Flex,
   Text,
-  IconButton,
   Image,
   Card,
-  Menu,
-  Portal,
-  Input,
-  VStack,
 } from '@chakra-ui/react';
-import {
-  IconTrash,
-  IconGripVertical,
-  IconChevronDown,
-  IconPencil,
-  IconCheck,
-  IconX,
-  IconPin,
-} from '@tabler/icons-react';
+import { IconGripVertical } from '@tabler/icons-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
 import type { LinkItem } from '@/features/github/types';
 import { useAppStore } from '@/features/store/useAppStore';
+import { LinkEditPopover } from './LinkEditPopover';
 
 interface LinkCardProps {
   link: LinkItem;
@@ -31,11 +19,8 @@ interface LinkCardProps {
 
 export function LinkCard({ link }: LinkCardProps) {
   const { removeLink, updateLink, accentColor, moveLinkToPinned } = useAppStore();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(link.title);
-  const [editUrl, setEditUrl] = useState(link.url);
   const [faviconError, setFaviconError] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const {
     attributes,
@@ -53,127 +38,52 @@ export function LinkCard({ link }: LinkCardProps) {
   };
 
   const handleOpenLink = () => {
-    if (menuOpen) return;
+    if (popoverOpen) return;
     window.location.href = link.url;
+  };
+
+  // Native drag for external drops (to pins area)
+  const handleNativeDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('text/uri-list', link.url);
+    e.dataTransfer.setData('text/plain', link.url);
+    e.dataTransfer.setData('text/html', `<a href="${link.url}">${link.title}</a>`);
+    e.dataTransfer.setData('application/x-kanso-link', JSON.stringify({
+      id: link.id,
+      url: link.url,
+      title: link.title,
+      favicon: link.favicon,
+    }));
+    e.dataTransfer.effectAllowed = 'copyMove';
+  };
+
+  // Get favicon URL - use stored favicon if available, otherwise derive from URL
+  const getFaviconDisplay = () => {
+    if (link.favicon) {
+      return link.favicon;
+    }
+    try {
+      const urlObj = new URL(link.url);
+      // DuckDuckGo's favicon service is more reliable than Google's
+      return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
+    } catch {
+      return null;
+    }
+  };
+
+  const faviconUrl = getFaviconDisplay();
+  const showFavicon = faviconUrl && !faviconError;
+
+  const handleSave = (updates: { title?: string; url?: string; favicon?: string }) => {
+    updateLink(link.id, updates);
   };
 
   const handleDelete = () => {
     removeLink(link.id);
   };
 
-  const handleStartEdit = () => {
-    setEditTitle(link.title);
-    setEditUrl(link.url);
-    setIsEditing(true);
+  const handleMove = () => {
+    moveLinkToPinned(link.id);
   };
-
-  const handleSaveEdit = () => {
-    if (editTitle.trim() && editUrl.trim()) {
-      updateLink(link.id, {
-        title: editTitle.trim(),
-        url: editUrl.trim(),
-      });
-      setIsEditing(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditTitle(link.title);
-    setEditUrl(link.url);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSaveEdit();
-    } else if (e.key === 'Escape') {
-      handleCancelEdit();
-    }
-  };
-
-  // Extract favicon URL - try multiple sources for better coverage
-  const getFaviconUrls = () => {
-    try {
-      const urlObj = new URL(link.url);
-      const domain = urlObj.hostname;
-      const origin = urlObj.origin;
-
-      // Return multiple favicon sources to try
-      return [
-        // Direct site favicon
-        `${origin}/favicon.ico`,
-        // DuckDuckGo (often has good coverage)
-        `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-        // Google (good fallback)
-        `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
-      ];
-    } catch {
-      return [];
-    }
-  };
-
-  const faviconSources = getFaviconUrls();
-  const [currentFaviconIndex, setCurrentFaviconIndex] = useState(0);
-
-  const faviconUrl = faviconSources[currentFaviconIndex] || null;
-
-  const handleFaviconError = () => {
-    // Try next favicon source
-    if (currentFaviconIndex < faviconSources.length - 1) {
-      setCurrentFaviconIndex((prev) => prev + 1);
-    } else {
-      setFaviconError(true);
-    }
-  };
-
-  const showFavicon = faviconUrl && !faviconError;
-
-  if (isEditing) {
-    return (
-      <Card.Root ref={setNodeRef} style={style} size="sm" variant="subtle">
-        <Card.Body p={3}>
-          <VStack gap={2} align="stretch">
-            <Input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Title"
-              size="sm"
-              variant="outline"
-              autoFocus
-              onKeyDown={handleKeyDown}
-            />
-            <Input
-              value={editUrl}
-              onChange={(e) => setEditUrl(e.target.value)}
-              placeholder="URL"
-              size="sm"
-              variant="outline"
-              onKeyDown={handleKeyDown}
-            />
-            <Flex justify="flex-end" gap={1}>
-              <IconButton
-                aria-label="Cancel"
-                size="xs"
-                variant="ghost"
-                onClick={handleCancelEdit}
-              >
-                <IconX size={14} />
-              </IconButton>
-              <IconButton
-                aria-label="Save"
-                size="xs"
-                variant="solid"
-                colorPalette={accentColor}
-                onClick={handleSaveEdit}
-              >
-                <IconCheck size={14} />
-              </IconButton>
-            </Flex>
-          </VStack>
-        </Card.Body>
-      </Card.Root>
-    );
-  }
 
   return (
     <Card.Root
@@ -186,7 +96,7 @@ export function LinkCard({ link }: LinkCardProps) {
     >
       <Card.Body p={0}>
         <Flex align="center">
-          {/* Drag handle */}
+          {/* Drag handle for reordering (dnd-kit) */}
           <Box
             {...attributes}
             {...listeners}
@@ -202,87 +112,57 @@ export function LinkCard({ link }: LinkCardProps) {
             <IconGripVertical size={16} />
           </Box>
 
-          {/* Favicon area */}
-          {showFavicon && (
-            <Box
-              flexShrink={0}
-              w="40px"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Image
-                src={faviconUrl}
-                alt=""
-                boxSize="24px"
-                onError={handleFaviconError}
-              />
-            </Box>
-          )}
+          {/* Content area - draggable to pins (native HTML5 drag) */}
+          <Flex
+            flex={1}
+            align="center"
+            draggable="true"
+            onDragStart={handleNativeDragStart}
+            onPointerDown={(e) => e.stopPropagation()}
+            cursor="grab"
+            data-no-dnd="true"
+          >
+            {/* Favicon area */}
+            {showFavicon && (
+              <Box
+                flexShrink={0}
+                w="40px"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Image
+                  src={faviconUrl}
+                  alt=""
+                  boxSize="24px"
+                  onError={() => setFaviconError(true)}
+                />
+              </Box>
+            )}
 
-          {/* Contents */}
-          <Flex direction="column" flex={1} py={2} gap={0} minW={0}>
-            <Text fontSize="sm" fontWeight="medium" lineClamp={1}>
-              {link.title}
-            </Text>
-            <Text fontSize="xs" color="fg.muted" lineClamp={1}>
-              {link.url}
-            </Text>
+            {/* Contents */}
+            <Flex direction="column" flex={1} py={2} gap={0} minW={0}>
+              <Text fontSize="sm" fontWeight="medium" lineClamp={1}>
+                {link.title}
+              </Text>
+              <Text fontSize="xs" color="fg.muted" lineClamp={1}>
+                {link.url}
+              </Text>
+            </Flex>
           </Flex>
 
-          {/* Menu */}
-          <Menu.Root open={menuOpen} onOpenChange={(e) => setMenuOpen(e.open)}>
-            <Menu.Trigger asChild>
-              <IconButton
-                aria-label="Link menu"
-                size="xs"
-                variant="ghost"
-                colorPalette={accentColor}
-                onClick={(e) => e.stopPropagation()}
-                flexShrink={0}
-                mr={2}
-              >
-                <IconChevronDown size={14} />
-              </IconButton>
-            </Menu.Trigger>
-            <Portal>
-              <Menu.Positioner>
-                <Menu.Content onClick={(e) => e.stopPropagation()}>
-                  <Menu.Item
-                    value="edit"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleStartEdit();
-                    }}
-                  >
-                    <IconPencil size={14} />
-                    Edit
-                  </Menu.Item>
-                  <Menu.Item
-                    value="pin"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      moveLinkToPinned(link.id);
-                    }}
-                  >
-                    <IconPin size={14} />
-                    Move to Pins
-                  </Menu.Item>
-                  <Menu.Item
-                    value="delete"
-                    color="fg.error"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete();
-                    }}
-                  >
-                    <IconTrash size={14} />
-                    Delete
-                  </Menu.Item>
-                </Menu.Content>
-              </Menu.Positioner>
-            </Portal>
-          </Menu.Root>
+          {/* Popover Menu */}
+          <Box flexShrink={0} mr={2} onClick={(e) => e.stopPropagation()}>
+            <LinkEditPopover
+              link={link}
+              accentColor={accentColor}
+              variant="workspace"
+              onSave={handleSave}
+              onDelete={handleDelete}
+              onMove={handleMove}
+              onOpenChange={setPopoverOpen}
+            />
+          </Box>
         </Flex>
       </Card.Body>
     </Card.Root>

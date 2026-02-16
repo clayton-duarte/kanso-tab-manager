@@ -124,8 +124,31 @@ export function DashboardLayout() {
     }
   };
 
+  // Custom handler to ignore elements with data-no-dnd attribute
+  const shouldHandleEvent = (element: Element | null) => {
+    let el = element;
+    while (el) {
+      if (el instanceof HTMLElement && el.dataset.noDnd === 'true') {
+        return false;
+      }
+      el = el.parentElement;
+    }
+    return true;
+  };
+
+  class CustomPointerSensor extends PointerSensor {
+    static activators = [
+      {
+        eventName: 'onPointerDown' as const,
+        handler: ({ nativeEvent }: { nativeEvent: PointerEvent }) => {
+          return shouldHandleEvent(nativeEvent.target as Element);
+        },
+      },
+    ];
+  }
+
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(CustomPointerSensor, {
       activationConstraint: {
         distance: 8, // 8px movement required before drag starts
       },

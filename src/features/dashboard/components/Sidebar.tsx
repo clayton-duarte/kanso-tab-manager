@@ -239,6 +239,7 @@ export function Sidebar() {
       minW="240px"
       h="100%"
       overflowY="auto"
+      overflowX="hidden"
     >
       <PinsArea />
 

@@ -5,19 +5,14 @@ import {
   IconButton,
   Input,
   HStack,
-  Menu,
-  Portal,
   Image,
 } from '@chakra-ui/react';
 import {
   IconPlus,
   IconCheck,
   IconX,
-  IconTrash,
-  IconPencil,
   IconGripVertical,
-  IconChevronDown,
-  IconPin,
+  IconLink,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import {
@@ -37,20 +32,24 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
+import { fetchPageTitle, getFaviconFromChrome } from '@/shared/utils/urlParser';
 import type { PinnedLink } from '@/features/github/types';
+import { LinkEditPopover } from './LinkEditPopover';
 
 interface SortablePinnedLinkItemProps {
   link: PinnedLink;
   accentColor: string;
-  onStartRename: () => void;
+  onSave: (updates: { title?: string; url?: string; favicon?: string }) => void;
   onDelete: () => void;
+  onMoveToWorkspace: () => void;
 }
 
 function SortablePinnedLinkItem({
   link,
   accentColor,
-  onStartRename,
+  onSave,
   onDelete,
+  onMoveToWorkspace,
 }: SortablePinnedLinkItemProps) {
   const [faviconError, setFaviconError] = useState(false);
   const {
@@ -68,16 +67,21 @@ function SortablePinnedLinkItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const getFaviconUrl = () => {
+  const getFaviconDisplay = () => {
+    // Use stored favicon if available, otherwise derive from URL
+    if (link.favicon) {
+      return link.favicon;
+    }
     try {
       const urlObj = new URL(link.url);
-      return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
+      // DuckDuckGo's favicon service is more reliable than Google's
+      return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
     } catch {
       return null;
     }
   };
 
-  const faviconUrl = getFaviconUrl();
+  const faviconUrl = getFaviconDisplay();
 
   const handleOpenLink = () => {
     window.location.href = link.url;
@@ -114,39 +118,22 @@ function SortablePinnedLinkItem({
         />
       ) : (
         <Box color="fg.muted">
-          <IconPin size={14} />
+          <IconLink size={14} />
         </Box>
       )}
       <Text fontSize="sm" flex={1} lineClamp={1}>
         {link.title || link.url}
       </Text>
-      <Menu.Root>
-        <Menu.Trigger asChild>
-          <IconButton
-            aria-label="Pin menu"
-            size="xs"
-            variant="ghost"
-            colorPalette={accentColor}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <IconChevronDown size={14} />
-          </IconButton>
-        </Menu.Trigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content>
-              <Menu.Item value="edit" onClick={onStartRename}>
-                <IconPencil size={14} />
-                Edit
-              </Menu.Item>
-              <Menu.Item value="delete" color="fg.error" onClick={onDelete}>
-                <IconTrash size={14} />
-                Delete
-              </Menu.Item>
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
+      <Box onClick={(e) => e.stopPropagation()}>
+        <LinkEditPopover
+          link={link}
+          accentColor={accentColor}
+          variant="pinned"
+          onSave={onSave}
+          onDelete={onDelete}
+          onMove={onMoveToWorkspace}
+        />
+      </Box>
     </Flex>
   );
 }
@@ -159,18 +146,96 @@ export function PinsArea() {
     removePinnedLink,
     updatePinnedLink,
     reorderPinnedLinks,
+    moveLinkToPinned,
+    movePinnedToWorkspace,
     accentColor,
   } = useAppStore();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newUrl, setNewUrl] = useState('');
-  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [editingUrl, setEditingUrl] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const pinnedLinks = activeProfileId
     ? pinnedLinksCache[activeProfileId] || []
     : [];
+
+  // Handle external drops (bookmarks, links from other windows)
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only accept URLs
+    if (
+      e.dataTransfer.types.includes('text/uri-list') ||
+      e.dataTransfer.types.includes('text/html') ||
+      e.dataTransfer.types.includes('text/plain') ||
+      e.dataTransfer.types.includes('application/x-kanso-link')
+    ) {
+      e.dataTransfer.dropEffect = 'copy';
+      if (!isDragOver) setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    // Check if it's a kanso workspace link (move from workspace to pins)
+    const kansoLinkData = e.dataTransfer.getData('application/x-kanso-link');
+    if (kansoLinkData) {
+      try {
+        const linkData = JSON.parse(kansoLinkData);
+        if (linkData.id) {
+          // Move from workspace to pins (removes from workspace)
+          moveLinkToPinned(linkData.id);
+          return;
+        }
+      } catch {
+        // Invalid JSON - fall through to URL handling
+      }
+    }
+
+    // Try to get URL from various data types (external drops)
+    const url =
+      e.dataTransfer.getData('text/uri-list') ||
+      e.dataTransfer.getData('text/plain') ||
+      e.dataTransfer.getData('URL');
+
+    if (url && url.startsWith('http')) {
+      try {
+        const urlObj = new URL(url);
+        // Try to get title from text/html if available
+        const html = e.dataTransfer.getData('text/html');
+        let title = urlObj.hostname;
+        if (html) {
+          const match = html.match(/<a[^>]*>([^<]+)<\/a>/i);
+          if (match && match[1]) {
+            title = match[1];
+          }
+        }
+        // Get favicon from Chrome (actual cached favicon)
+        const favicon = await getFaviconFromChrome(url);
+        const linkId = addPinnedLink(url, title, favicon);
+        
+        // Fetch actual page title and update
+        if (linkId) {
+          fetchPageTitle(url).then((fetchedTitle) => {
+            if (fetchedTitle !== title) {
+              updatePinnedLink(linkId, { title: fetchedTitle });
+            }
+          });
+        }
+      } catch {
+        // Invalid URL - ignore
+      }
+    }
+  };
 
   const handleCreateLink = async () => {
     if (newUrl.trim()) {
@@ -179,9 +244,20 @@ export function PinsArea() {
           ? newUrl.trim()
           : `https://${newUrl.trim()}`;
         const urlObj = new URL(url);
-        addPinnedLink(url, urlObj.hostname);
+        // Get favicon from Chrome (actual cached favicon)
+        const favicon = await getFaviconFromChrome(url);
+        const linkId = addPinnedLink(url, urlObj.hostname, favicon);
         setNewUrl('');
         setIsCreating(false);
+
+        // Fetch actual page title and update
+        if (linkId) {
+          fetchPageTitle(url).then((fetchedTitle) => {
+            if (fetchedTitle !== urlObj.hostname) {
+              updatePinnedLink(linkId, { title: fetchedTitle });
+            }
+          });
+        }
       } catch {
         setNewUrl('');
         setIsCreating(false);
@@ -195,34 +271,6 @@ export function PinsArea() {
     } else if (e.key === 'Escape') {
       setIsCreating(false);
       setNewUrl('');
-    }
-  };
-
-  const handleStartRename = (link: PinnedLink) => {
-    setEditingLinkId(link.id);
-    setEditingTitle(link.title);
-    setEditingUrl(link.url);
-  };
-
-  const handleSaveEdit = () => {
-    if (editingLinkId && editingTitle.trim() && editingUrl.trim()) {
-      updatePinnedLink(editingLinkId, {
-        title: editingTitle.trim(),
-        url: editingUrl.trim(),
-      });
-    }
-    setEditingLinkId(null);
-    setEditingTitle('');
-    setEditingUrl('');
-  };
-
-  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSaveEdit();
-    } else if (e.key === 'Escape') {
-      setEditingLinkId(null);
-      setEditingTitle('');
-      setEditingUrl('');
     }
   };
 
@@ -253,7 +301,42 @@ export function PinsArea() {
   const linkIds = pinnedLinks.map((l) => l.id);
 
   return (
-    <Box borderBottomWidth="1px" borderColor="border.muted">
+    <Box
+      borderBottomWidth="1px"
+      borderColor="border.muted"
+      position="relative"
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragOver && (
+        <Flex
+          position="absolute"
+          inset={0}
+          bg={`${accentColor}.900/30`}
+          borderWidth="2px"
+          borderStyle="dashed"
+          borderColor={`${accentColor}.500`}
+          borderRadius="md"
+          zIndex={10}
+          align="center"
+          justify="center"
+          direction="column"
+          gap={1}
+          pointerEvents="none"
+        >
+          <IconLink
+            size={20}
+            color={`var(--chakra-colors-${accentColor}-400)`}
+          />
+          <Text color={`${accentColor}.400`} fontWeight="medium" fontSize="xs">
+            Drop to pin
+          </Text>
+        </Flex>
+      )}
+
       <Flex
         justify="space-between"
         align="center"
@@ -281,7 +364,7 @@ export function PinsArea() {
         </IconButton>
       </Flex>
 
-      <Box>
+      <Box minH="40px">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -291,60 +374,16 @@ export function PinsArea() {
             items={linkIds}
             strategy={verticalListSortingStrategy}
           >
-            {pinnedLinks.map((link) =>
-              editingLinkId === link.id ? (
-                <Box key={link.id} px={2} py={1}>
-                  <Input
-                    size="sm"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    placeholder="Title"
-                    mb={1}
-                    variant="outline"
-                  />
-                  <HStack gap={1}>
-                    <Input
-                      size="sm"
-                      value={editingUrl}
-                      onChange={(e) => setEditingUrl(e.target.value)}
-                      onKeyDown={handleRenameKeyDown}
-                      placeholder="URL"
-                      autoFocus
-                      variant="outline"
-                    />
-                    <IconButton
-                      aria-label="Confirm"
-                      size="xs"
-                      colorPalette={accentColor}
-                      onClick={handleSaveEdit}
-                    >
-                      <IconCheck size={14} />
-                    </IconButton>
-                    <IconButton
-                      aria-label="Cancel"
-                      size="xs"
-                      variant="ghost"
-                      colorPalette={accentColor}
-                      onClick={() => {
-                        setEditingLinkId(null);
-                        setEditingTitle('');
-                        setEditingUrl('');
-                      }}
-                    >
-                      <IconX size={14} />
-                    </IconButton>
-                  </HStack>
-                </Box>
-              ) : (
-                <SortablePinnedLinkItem
-                  key={link.id}
-                  link={link}
-                  accentColor={accentColor}
-                  onStartRename={() => handleStartRename(link)}
-                  onDelete={() => removePinnedLink(link.id)}
-                />
-              )
-            )}
+            {pinnedLinks.map((link) => (
+              <SortablePinnedLinkItem
+                key={link.id}
+                link={link}
+                accentColor={accentColor}
+                onSave={(updates) => updatePinnedLink(link.id, updates)}
+                onDelete={() => removePinnedLink(link.id)}
+                onMoveToWorkspace={() => movePinnedToWorkspace(link.id)}
+              />
+            ))}
           </SortableContext>
         </DndContext>
 
@@ -383,7 +422,7 @@ export function PinsArea() {
           </HStack>
         )}
 
-        {pinnedLinks.length === 0 && !isCreating && (
+        {pinnedLinks.length === 0 && !isCreating && !isDragOver && (
           <Text
             fontSize="xs"
             color="fg.subtle"

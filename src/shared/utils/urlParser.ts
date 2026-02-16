@@ -30,9 +30,13 @@ export async function fetchPageTitle(url: string): Promise<string> {
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     if (titleMatch && titleMatch[1]) {
       const title = titleMatch[1].trim();
-      // Clean up common title patterns (e.g., "Page Title | Site Name")
-      // Return the first meaningful part
-      if (title.length > 0 && title.length < 200) {
+      // Validate title is meaningful (not just numbers, not too short)
+      if (
+        title.length > 1 &&
+        title.length < 200 &&
+        !/^\d+$/.test(title) &&
+        !/^[\s\d.-]+$/.test(title)
+      ) {
         return title;
       }
     }
@@ -46,6 +50,7 @@ export async function fetchPageTitle(url: string): Promise<string> {
 
 /**
  * Extract URL from various drag data transfer formats
+ * Note: Does not include favicon - caller should use getFaviconFromChrome for best results
  */
 export function parseDroppedData(
   dataTransfer: DataTransfer
@@ -61,7 +66,7 @@ export function parseDroppedData(
       return {
         url,
         title: extractTitleFromUrl(url),
-        favicon: getFaviconUrl(url),
+        // Don't set favicon here - let caller fetch from Chrome
       };
     }
   }
@@ -73,7 +78,7 @@ export function parseDroppedData(
     if (parsed) {
       return {
         ...parsed,
-        favicon: getFaviconUrl(parsed.url),
+        // Don't set favicon here - let caller fetch from Chrome
       };
     }
   }
@@ -144,14 +149,43 @@ export function extractTitleFromUrl(url: string): string {
 }
 
 /**
- * Get favicon URL using Google's favicon service
+ * Get favicon URL - fallback service when Chrome tab favicon is not available
+ * Uses DuckDuckGo's service which is more reliable than Google's
  */
-export function getFaviconUrl(url: string, size: number = 32): string {
+export function getFaviconUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=${size}`;
+    // DuckDuckGo's favicon service is more reliable
+    return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
   } catch {
     return '';
+  }
+}
+
+/**
+ * Get favicon from Chrome tabs API
+ * This returns the actual favicon Chrome has cached for the tab
+ * Falls back to DuckDuckGo if tab not found
+ */
+export async function getFaviconFromChrome(url: string): Promise<string> {
+  try {
+    // Only works in extension context
+    if (typeof chrome === 'undefined' || !chrome.tabs) {
+      return getFaviconUrl(url);
+    }
+
+    // Query all tabs to find one with matching URL
+    const tabs = await chrome.tabs.query({});
+    const matchingTab = tabs.find((tab) => tab.url === url);
+
+    if (matchingTab?.favIconUrl) {
+      return matchingTab.favIconUrl;
+    }
+
+    // Fallback to DuckDuckGo
+    return getFaviconUrl(url);
+  } catch {
+    return getFaviconUrl(url);
   }
 }
 

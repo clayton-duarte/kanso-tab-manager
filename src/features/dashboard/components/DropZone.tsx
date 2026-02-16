@@ -1,7 +1,7 @@
 import { Box, Text, Flex } from '@chakra-ui/react';
 import { IconLink } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
-import { parseDroppedData, fetchPageTitle } from '@/shared/utils/urlParser';
+import { parseDroppedData, fetchPageTitle, getFaviconFromChrome } from '@/shared/utils/urlParser';
 import {
   useAppStore,
   selectActiveWorkspaceData,
@@ -47,8 +47,11 @@ export function DropZone({ children }: DropZoneProps) {
     const parsed = parseDroppedData(e.dataTransfer);
 
     if (parsed) {
+      // Get favicon from Chrome tabs (uses actual cached favicon)
+      const favicon = await getFaviconFromChrome(parsed.url);
+      
       // Add link immediately with URL-based title for instant feedback
-      const linkId = addLink(parsed.url, parsed.title, parsed.favicon);
+      const linkId = addLink(parsed.url, parsed.title, favicon);
 
       // Fetch actual page title in background and update if successful
       if (linkId) {

@@ -174,6 +174,8 @@ export interface AppActions {
   reorderPinnedLinks: (oldIndex: number, newIndex: number) => void;
   /** Move a workspace link to pinned links */
   moveLinkToPinned: (linkId: string) => void;
+  /** Move a pinned link to the active workspace */
+  movePinnedToWorkspace: (linkId: string) => void;
 
   // Sync (non-blocking, warns on error)
   /** Save active workspace to Gist (debounced) */
