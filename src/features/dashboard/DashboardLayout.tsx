@@ -38,8 +38,7 @@ import {
 import {
   isValidUrl,
   extractTitleFromUrl,
-  getFaviconFromChrome,
-  fetchPageTitle,
+  getTabDataFromChrome,
 } from '@/shared/utils/urlParser';
 
 export function DashboardLayout() {
@@ -49,7 +48,6 @@ export function DashboardLayout() {
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const reorderLinks = useAppStore((state) => state.reorderLinks);
   const addLink = useAppStore((state) => state.addLink);
-  const updateLink = useAppStore((state) => state.updateLink);
   const accentColor = useAppStore((state) => state.accentColor);
 
   // Handle adding a link
@@ -65,24 +63,20 @@ export function DashboardLayout() {
 
       if (!isValidUrl(fullUrl)) return;
 
-      const title = extractTitleFromUrl(fullUrl);
-      // Try to get favicon from open tabs
-      const favicon = await getFaviconFromChrome(fullUrl);
-      const linkId = addLink(fullUrl, title, favicon || undefined);
-
-      // Fetch actual title in background
-      if (linkId) {
-        fetchPageTitle(fullUrl).then((fetchedTitle) => {
-          if (fetchedTitle !== title) {
-            updateLink(linkId, { title: fetchedTitle });
-          }
-        });
-      }
+      // Get title and favicon from Chrome tabs (if tab is open)
+      const tabData = await getTabDataFromChrome(fullUrl);
+      
+      // Use Chrome tab data if available, otherwise fallback
+      const title = tabData.title || extractTitleFromUrl(fullUrl);
+      const favicon = tabData.favicon || undefined;
+      
+      // Add link with title and favicon from Chrome (or fallbacks)
+      addLink(fullUrl, title, favicon);
 
       setNewLinkUrl('');
       setIsAddingLink(false);
     },
-    [addLink, updateLink]
+    [addLink]
   );
 
   // Handle paste event globally

@@ -1,7 +1,7 @@
 import { Box, Text, Flex } from '@chakra-ui/react';
 import { IconLink } from '@tabler/icons-react';
 import { useState, type ReactNode } from 'react';
-import { parseDroppedData, fetchPageTitle, getFaviconFromChrome } from '@/shared/utils/urlParser';
+import { parseDroppedData, getTabDataFromChrome } from '@/shared/utils/urlParser';
 import {
   useAppStore,
   selectActiveWorkspaceData,
@@ -14,7 +14,6 @@ interface DropZoneProps {
 export function DropZone({ children }: DropZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const addLink = useAppStore((state) => state.addLink);
-  const updateLink = useAppStore((state) => state.updateLink);
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const accentColor = useAppStore((state) => state.accentColor);
 
@@ -47,21 +46,15 @@ export function DropZone({ children }: DropZoneProps) {
     const parsed = parseDroppedData(e.dataTransfer);
 
     if (parsed) {
-      // Get favicon from Chrome tabs (uses actual cached favicon)
-      const favicon = await getFaviconFromChrome(parsed.url);
+      // Get title and favicon from Chrome tabs (if tab is open)
+      const tabData = await getTabDataFromChrome(parsed.url);
       
-      // Add link immediately with URL-based title for instant feedback
-      const linkId = addLink(parsed.url, parsed.title, favicon);
-
-      // Fetch actual page title in background and update if successful
-      if (linkId) {
-        fetchPageTitle(parsed.url).then((fetchedTitle) => {
-          // Only update if the fetched title is different from the initial one
-          if (fetchedTitle !== parsed.title) {
-            updateLink(linkId, { title: fetchedTitle });
-          }
-        });
-      }
+      // Use Chrome tab data if available, otherwise fallback to parsed data
+      const title = tabData.title || parsed.title;
+      const favicon = tabData.favicon || undefined;
+      
+      // Add link with title and favicon from Chrome (or fallbacks)
+      addLink(parsed.url, title, favicon);
     }
   };
 

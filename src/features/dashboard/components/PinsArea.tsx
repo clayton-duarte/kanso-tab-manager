@@ -32,7 +32,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
-import { fetchPageTitle, getFaviconFromChrome } from '@/shared/utils/urlParser';
+import { getTabDataFromChrome, extractTitleFromUrl } from '@/shared/utils/urlParser';
 import type { PinnedLink } from '@/features/github/types';
 import { LinkEditPopover } from './LinkEditPopover';
 
@@ -200,28 +200,15 @@ export function PinsArea() {
 
     if (url && url.startsWith('http')) {
       try {
-        const urlObj = new URL(url);
-        // Try to get title from text/html if available
-        const html = e.dataTransfer.getData('text/html');
-        let title = urlObj.hostname;
-        if (html) {
-          const match = html.match(/<a[^>]*>([^<]+)<\/a>/i);
-          if (match && match[1]) {
-            title = match[1];
-          }
-        }
-        // Get favicon from Chrome (actual cached favicon)
-        const favicon = await getFaviconFromChrome(url);
-        const linkId = addPinnedLink(url, title, favicon);
+        // Get title and favicon from Chrome tabs (if tab is open)
+        const tabData = await getTabDataFromChrome(url);
         
-        // Fetch actual page title and update
-        if (linkId) {
-          fetchPageTitle(url).then((fetchedTitle) => {
-            if (fetchedTitle !== title) {
-              updatePinnedLink(linkId, { title: fetchedTitle });
-            }
-          });
-        }
+        // Use Chrome tab data if available, otherwise fallback
+        const title = tabData.title || extractTitleFromUrl(url);
+        const favicon = tabData.favicon || undefined;
+        
+        // Add pinned link with title and favicon from Chrome (or fallbacks)
+        addPinnedLink(url, title, favicon);
       } catch {
         // Invalid URL - ignore
       }
@@ -234,21 +221,18 @@ export function PinsArea() {
         const url = newUrl.trim().startsWith('http')
           ? newUrl.trim()
           : `https://${newUrl.trim()}`;
-        const urlObj = new URL(url);
-        // Get favicon from Chrome (actual cached favicon)
-        const favicon = await getFaviconFromChrome(url);
-        const linkId = addPinnedLink(url, urlObj.hostname, favicon);
+        
+        // Get title and favicon from Chrome tabs (if tab is open)
+        const tabData = await getTabDataFromChrome(url);
+        
+        // Use Chrome tab data if available, otherwise fallback
+        const title = tabData.title || extractTitleFromUrl(url);
+        const favicon = tabData.favicon || undefined;
+        
+        // Add pinned link with title and favicon from Chrome (or fallbacks)
+        addPinnedLink(url, title, favicon);
         setNewUrl('');
         setIsCreating(false);
-
-        // Fetch actual page title and update
-        if (linkId) {
-          fetchPageTitle(url).then((fetchedTitle) => {
-            if (fetchedTitle !== urlObj.hostname) {
-              updatePinnedLink(linkId, { title: fetchedTitle });
-            }
-          });
-        }
       } catch {
         setNewUrl('');
         setIsCreating(false);

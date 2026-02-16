@@ -149,15 +149,23 @@ export function extractTitleFromUrl(url: string): string {
 }
 
 /**
- * Get favicon from Chrome tabs API
- * Returns the favicon URL from an open tab, or empty string if not found
- * Only returns favicon from fully loaded tabs (not suspended/discarded)
+ * Data from Chrome tab
  */
-export async function getFaviconFromChrome(url: string): Promise<string> {
+export interface ChromeTabData {
+  title: string;
+  favicon: string;
+}
+
+/**
+ * Get title and favicon from Chrome tabs API
+ * Returns data from an open tab, or empty values if not found
+ * Only returns data from fully loaded tabs (not suspended/discarded)
+ */
+export async function getTabDataFromChrome(url: string): Promise<ChromeTabData> {
   try {
     // Only works in extension context
     if (typeof chrome === 'undefined' || !chrome.tabs) {
-      return '';
+      return { title: '', favicon: '' };
     }
 
     const urlObj = new URL(url);
@@ -165,17 +173,17 @@ export async function getFaviconFromChrome(url: string): Promise<string> {
 
     const tabs = await chrome.tabs.query({});
     
-    // First try exact URL match
+    // First try exact URL match with a loaded tab
     let matchingTab = tabs.find((tab) => 
       tab.url === url && 
-      tab.favIconUrl && 
-      !tab.discarded // Skip suspended tabs - they don't have valid favicons
+      !tab.discarded && // Skip suspended tabs
+      tab.title // Must have a title (indicates loaded)
     );
     
-    // Then try matching by hostname (handles different paths/query params)
+    // Then try matching by hostname
     if (!matchingTab) {
       matchingTab = tabs.find((tab) => {
-        if (tab.discarded || !tab.favIconUrl) return false;
+        if (tab.discarded || !tab.title) return false;
         try {
           const tabUrl = new URL(tab.url || '');
           return tabUrl.hostname === targetHostname;
@@ -185,18 +193,21 @@ export async function getFaviconFromChrome(url: string): Promise<string> {
       });
     }
 
-    // Return the favicon URL if found and valid
-    if (matchingTab?.favIconUrl) {
-      const favicon = matchingTab.favIconUrl;
-      // Skip internal chrome URLs
-      if (!favicon.startsWith('chrome://') && !favicon.startsWith('chrome-extension://')) {
-        return favicon;
+    if (matchingTab) {
+      const title = matchingTab.title || '';
+      let favicon = matchingTab.favIconUrl || '';
+      
+      // Skip internal chrome URLs for favicon
+      if (favicon.startsWith('chrome://') || favicon.startsWith('chrome-extension://')) {
+        favicon = '';
       }
+      
+      return { title, favicon };
     }
 
-    return '';
+    return { title: '', favicon: '' };
   } catch {
-    return '';
+    return { title: '', favicon: '' };
   }
 }
 

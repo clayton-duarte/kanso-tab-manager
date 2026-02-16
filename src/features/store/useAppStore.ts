@@ -16,7 +16,7 @@ import {
   parseProfileSettingsFilename,
   generateProfileSettingsFilename,
 } from '@/shared/utils/urlParser';
-import { switchWorkspaceTabs, switchPinnedTabs, setupFaviconPopulator } from '@/shared/utils/chromeTabs';
+import { switchWorkspaceTabs, switchPinnedTabs, setupTabDataPopulator } from '@/shared/utils/chromeTabs';
 import {
   loadSession,
   saveSession,
@@ -160,9 +160,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // Don't await - let UI show cached data immediately
       get().sync();
 
-      // 4. Set up favicon populator to fill missing favicons when tabs load
-      setupFaviconPopulator((tabUrl, faviconUrl) => {
-        get().populateMissingFavicon(tabUrl, faviconUrl);
+      // 4. Set up tab data populator to fill missing titles/favicons when tabs load
+      setupTabDataPopulator((tabUrl, title, faviconUrl) => {
+        get().populateMissingTabData(tabUrl, title, faviconUrl);
       });
     } catch {
       // Even on error, stop initializing so UI can render
@@ -1648,10 +1648,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   /**
-   * Populate missing favicon for links matching a URL
-   * Called when a tab finishes loading - only fills empty favicons, never overwrites
+   * Populate missing title/favicon for links matching a URL
+   * Called when a tab finishes loading - only fills empty fields, never overwrites
    */
-  populateMissingFavicon: (tabUrl: string, faviconUrl: string) => {
+  populateMissingTabData: (tabUrl: string, title: string | undefined, faviconUrl: string | undefined) => {
     const {
       activeWorkspaceId,
       activeProfileId,
@@ -1670,10 +1670,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (activeWorkspaceId && workspaceDataCache[activeWorkspaceId]) {
       const currentData = workspaceDataCache[activeWorkspaceId];
       const updatedLinks = currentData.links.map((link) => {
-        // Only populate if URL matches and favicon is empty
-        if (link.url === tabUrl && !link.favicon) {
-          workspaceUpdated = true;
-          return { ...link, favicon: faviconUrl };
+        // Only populate if URL matches and title/favicon is empty
+        if (link.url === tabUrl) {
+          const needsTitle = title && !link.title;
+          const needsFavicon = faviconUrl && !link.favicon;
+          if (needsTitle || needsFavicon) {
+            workspaceUpdated = true;
+            return {
+              ...link,
+              ...(needsTitle ? { title } : {}),
+              ...(needsFavicon ? { favicon: faviconUrl } : {}),
+            };
+          }
         }
         return link;
       });
@@ -1708,10 +1716,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const profile = profiles.find((p) => p.id === activeProfileId);
       const currentLinks = pinnedLinksCache[activeProfileId];
       const updatedLinks = currentLinks.map((link) => {
-        // Only populate if URL matches and favicon is empty
-        if (link.url === tabUrl && !link.favicon) {
-          pinnedUpdated = true;
-          return { ...link, favicon: faviconUrl };
+        // Only populate if URL matches and title/favicon is empty
+        if (link.url === tabUrl) {
+          const needsTitle = title && !link.title;
+          const needsFavicon = faviconUrl && !link.favicon;
+          if (needsTitle || needsFavicon) {
+            pinnedUpdated = true;
+            return {
+              ...link,
+              ...(needsTitle ? { title } : {}),
+              ...(needsFavicon ? { favicon: faviconUrl } : {}),
+            };
+          }
         }
         return link;
       });

@@ -272,11 +272,11 @@ export async function switchPinnedTabs(tabs: TabInfo[]): Promise<void> {
 }
 
 /**
- * Set up a listener that populates missing favicons when tabs finish loading
+ * Set up a listener that populates missing titles/favicons when tabs finish loading
  * Call this once during app initialization
  */
-export function setupFaviconPopulator(
-  onFaviconFound: (url: string, faviconUrl: string) => void
+export function setupTabDataPopulator(
+  onTabDataFound: (url: string, title: string | undefined, faviconUrl: string | undefined) => void
 ): () => void {
   if (!isExtensionContext()) {
     return () => {};
@@ -287,15 +287,19 @@ export function setupFaviconPopulator(
     changeInfo: { status?: string; url?: string; favIconUrl?: string },
     tab: chrome.tabs.Tab
   ) => {
-    // Only act when the tab completes loading and has a favicon
-    if (
-      changeInfo.status === 'complete' &&
-      tab.url &&
-      tab.favIconUrl &&
-      !tab.favIconUrl.startsWith('chrome://') &&
-      !tab.favIconUrl.startsWith('chrome-extension://')
-    ) {
-      onFaviconFound(tab.url, tab.favIconUrl);
+    // Only act when the tab completes loading
+    if (changeInfo.status === 'complete' && tab.url) {
+      const favicon =
+        tab.favIconUrl &&
+        !tab.favIconUrl.startsWith('chrome://') &&
+        !tab.favIconUrl.startsWith('chrome-extension://')
+          ? tab.favIconUrl
+          : undefined;
+
+      // Pass both title and favicon (either may be undefined)
+      if (tab.title || favicon) {
+        onTabDataFound(tab.url, tab.title, favicon);
+      }
     }
   };
 
