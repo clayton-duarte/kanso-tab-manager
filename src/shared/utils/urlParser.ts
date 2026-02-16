@@ -89,7 +89,7 @@ export function parseDroppedData(
     return {
       url: text.trim(),
       title: extractTitleFromUrl(text.trim()),
-      favicon: getFaviconUrl(text.trim()),
+      // Don't set favicon here - let caller fetch from Chrome
     };
   }
 
@@ -149,43 +149,54 @@ export function extractTitleFromUrl(url: string): string {
 }
 
 /**
- * Get favicon URL - fallback service when Chrome tab favicon is not available
- * Uses DuckDuckGo's service which is more reliable than Google's
- */
-export function getFaviconUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    // DuckDuckGo's favicon service is more reliable
-    return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
-  } catch {
-    return '';
-  }
-}
-
-/**
  * Get favicon from Chrome tabs API
- * This returns the actual favicon Chrome has cached for the tab
- * Falls back to DuckDuckGo if tab not found
+ * Returns the favicon URL from an open tab, or empty string if not found
+ * Only returns favicon from fully loaded tabs (not suspended/discarded)
  */
 export async function getFaviconFromChrome(url: string): Promise<string> {
   try {
     // Only works in extension context
     if (typeof chrome === 'undefined' || !chrome.tabs) {
-      return getFaviconUrl(url);
+      return '';
     }
 
-    // Query all tabs to find one with matching URL
+    const urlObj = new URL(url);
+    const targetHostname = urlObj.hostname;
+
     const tabs = await chrome.tabs.query({});
-    const matchingTab = tabs.find((tab) => tab.url === url);
-
-    if (matchingTab?.favIconUrl) {
-      return matchingTab.favIconUrl;
+    
+    // First try exact URL match
+    let matchingTab = tabs.find((tab) => 
+      tab.url === url && 
+      tab.favIconUrl && 
+      !tab.discarded // Skip suspended tabs - they don't have valid favicons
+    );
+    
+    // Then try matching by hostname (handles different paths/query params)
+    if (!matchingTab) {
+      matchingTab = tabs.find((tab) => {
+        if (tab.discarded || !tab.favIconUrl) return false;
+        try {
+          const tabUrl = new URL(tab.url || '');
+          return tabUrl.hostname === targetHostname;
+        } catch {
+          return false;
+        }
+      });
     }
 
-    // Fallback to DuckDuckGo
-    return getFaviconUrl(url);
+    // Return the favicon URL if found and valid
+    if (matchingTab?.favIconUrl) {
+      const favicon = matchingTab.favIconUrl;
+      // Skip internal chrome URLs
+      if (!favicon.startsWith('chrome://') && !favicon.startsWith('chrome-extension://')) {
+        return favicon;
+      }
+    }
+
+    return '';
   } catch {
-    return getFaviconUrl(url);
+    return '';
   }
 }
 

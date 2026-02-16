@@ -162,6 +162,8 @@ export interface AppActions {
   togglePinLink: (linkId: string) => void;
   /** Reorder links in the active workspace */
   reorderLinks: (oldIndex: number, newIndex: number) => void;
+  /** Populate missing favicon for links matching a URL (called when tabs load) */
+  populateMissingFavicon: (tabUrl: string, faviconUrl: string) => void;
 
   // Pinned Links CRUD (per profile, synced to profile settings)
   /** Add a pinned link to the active profile */

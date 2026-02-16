@@ -52,40 +52,23 @@ export function LinkEditPopover({
   const [customFavicon, setCustomFavicon] = useState(link.favicon || '');
   const [faviconError, setFaviconError] = useState(false);
 
-  // Derive favicon URL using DuckDuckGo's service (more reliable than Google's)
-  const getDerivedFavicon = (targetUrl: string) => {
-    try {
-      const urlObj = new URL(targetUrl);
-      return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
-    } catch {
-      return '';
-    }
-  };
-
   // Reset form when popover opens
   useEffect(() => {
     if (open) {
       setTitle(link.title);
       setUrl(link.url);
-      // Show stored favicon, or derive from URL if none stored
-      const storedOrDerived = link.favicon || getDerivedFavicon(link.url);
-      setCustomFavicon(storedOrDerived);
+      // Show stored favicon only
+      setCustomFavicon(link.favicon || '');
       setFaviconError(false);
     }
   }, [open, link.title, link.url, link.favicon]);
 
   // Current favicon for preview (use input value)
-  const currentFavicon = customFavicon || getDerivedFavicon(url);
+  const currentFavicon = customFavicon || null;
 
-  // Auto-update favicon when URL changes
+  // When URL changes, just update the URL (don't auto-derive favicon)
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl);
-    // Auto-derive new favicon from new URL
-    const newFavicon = getDerivedFavicon(newUrl);
-    if (newFavicon) {
-      setCustomFavicon(newFavicon);
-      setFaviconError(false);
-    }
   };
 
   const handleSave = () => {
@@ -97,14 +80,9 @@ export function LinkEditPopover({
     if (url.trim() !== link.url) {
       updates.url = url.trim();
     }
-    // Always save favicon if it differs from stored (including derived ones)
-    const originalFavicon = link.favicon || getDerivedFavicon(link.url);
-    if (customFavicon !== originalFavicon) {
+    // Save favicon if changed
+    if (customFavicon !== (link.favicon || '')) {
       updates.favicon = customFavicon || undefined;
-    }
-    // Also save if we have a favicon and none was stored before
-    if (!link.favicon && customFavicon) {
-      updates.favicon = customFavicon;
     }
 
     if (Object.keys(updates).length > 0) {

@@ -56,18 +56,9 @@ export function LinkCard({ link }: LinkCardProps) {
     e.dataTransfer.effectAllowed = 'copyMove';
   };
 
-  // Get favicon URL - use stored favicon if available, otherwise derive from URL
+  // Get favicon URL - only show stored favicon, no fallback
   const getFaviconDisplay = () => {
-    if (link.favicon) {
-      return link.favicon;
-    }
-    try {
-      const urlObj = new URL(link.url);
-      // DuckDuckGo's favicon service is more reliable than Google's
-      return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
-    } catch {
-      return null;
-    }
+    return link.favicon || null;
   };
 
   const faviconUrl = getFaviconDisplay();
@@ -95,7 +86,7 @@ export function LinkCard({ link }: LinkCardProps) {
       onClick={handleOpenLink}
     >
       <Card.Body p={0}>
-        <Flex align="center">
+        <Flex align="center" gap={2} px={2}>
           {/* Drag handle for reordering (dnd-kit) */}
           <Box
             {...attributes}
@@ -107,7 +98,6 @@ export function LinkCard({ link }: LinkCardProps) {
             alignSelf="stretch"
             display="flex"
             alignItems="center"
-            ml={3}
           >
             <IconGripVertical size={16} />
           </Box>
@@ -121,12 +111,12 @@ export function LinkCard({ link }: LinkCardProps) {
             onPointerDown={(e) => e.stopPropagation()}
             cursor="grab"
             data-no-dnd="true"
+            gap={2}
           >
             {/* Favicon area */}
             {showFavicon && (
               <Box
                 flexShrink={0}
-                w="40px"
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
@@ -152,7 +142,7 @@ export function LinkCard({ link }: LinkCardProps) {
           </Flex>
 
           {/* Popover Menu */}
-          <Box flexShrink={0} mr={2} onClick={(e) => e.stopPropagation()}>
+          <Box flexShrink={0} onClick={(e) => e.stopPropagation()}>
             <LinkEditPopover
               link={link}
               accentColor={accentColor}

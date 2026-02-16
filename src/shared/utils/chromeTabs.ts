@@ -270,3 +270,39 @@ export async function switchPinnedTabs(tabs: TabInfo[]): Promise<void> {
   // Open new pinned tabs
   await openPinnedTabs(tabs);
 }
+
+/**
+ * Set up a listener that populates missing favicons when tabs finish loading
+ * Call this once during app initialization
+ */
+export function setupFaviconPopulator(
+  onFaviconFound: (url: string, faviconUrl: string) => void
+): () => void {
+  if (!isExtensionContext()) {
+    return () => {};
+  }
+
+  const listener = (
+    _tabId: number,
+    changeInfo: { status?: string; url?: string; favIconUrl?: string },
+    tab: chrome.tabs.Tab
+  ) => {
+    // Only act when the tab completes loading and has a favicon
+    if (
+      changeInfo.status === 'complete' &&
+      tab.url &&
+      tab.favIconUrl &&
+      !tab.favIconUrl.startsWith('chrome://') &&
+      !tab.favIconUrl.startsWith('chrome-extension://')
+    ) {
+      onFaviconFound(tab.url, tab.favIconUrl);
+    }
+  };
+
+  chrome.tabs.onUpdated.addListener(listener);
+
+  // Return cleanup function
+  return () => {
+    chrome.tabs.onUpdated.removeListener(listener);
+  };
+}

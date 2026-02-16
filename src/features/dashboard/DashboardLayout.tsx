@@ -38,7 +38,7 @@ import {
 import {
   isValidUrl,
   extractTitleFromUrl,
-  getFaviconUrl,
+  getFaviconFromChrome,
   fetchPageTitle,
 } from '@/shared/utils/urlParser';
 
@@ -54,7 +54,7 @@ export function DashboardLayout() {
 
   // Handle adding a link
   const handleAddLink = useCallback(
-    (url: string) => {
+    async (url: string) => {
       const trimmedUrl = url.trim();
       if (!trimmedUrl) return;
 
@@ -66,8 +66,9 @@ export function DashboardLayout() {
       if (!isValidUrl(fullUrl)) return;
 
       const title = extractTitleFromUrl(fullUrl);
-      const favicon = getFaviconUrl(fullUrl);
-      const linkId = addLink(fullUrl, title, favicon);
+      // Try to get favicon from open tabs
+      const favicon = await getFaviconFromChrome(fullUrl);
+      const linkId = addLink(fullUrl, title, favicon || undefined);
 
       // Fetch actual title in background
       if (linkId) {

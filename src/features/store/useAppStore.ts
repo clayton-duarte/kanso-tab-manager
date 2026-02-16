@@ -16,7 +16,7 @@ import {
   parseProfileSettingsFilename,
   generateProfileSettingsFilename,
 } from '@/shared/utils/urlParser';
-import { switchWorkspaceTabs, switchPinnedTabs } from '@/shared/utils/chromeTabs';
+import { switchWorkspaceTabs, switchPinnedTabs, setupFaviconPopulator } from '@/shared/utils/chromeTabs';
 import {
   loadSession,
   saveSession,
@@ -159,6 +159,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // 3. Background sync (non-blocking)
       // Don't await - let UI show cached data immediately
       get().sync();
+
+      // 4. Set up favicon populator to fill missing favicons when tabs load
+      setupFaviconPopulator((tabUrl, faviconUrl) => {
+        get().populateMissingFavicon(tabUrl, faviconUrl);
+      });
     } catch {
       // Even on error, stop initializing so UI can render
       set({ isInitializing: false });
@@ -1640,6 +1645,104 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     // Queue debounced sync to Gist
     get().saveWorkspace();
+  },
+
+  /**
+   * Populate missing favicon for links matching a URL
+   * Called when a tab finishes loading - only fills empty favicons, never overwrites
+   */
+  populateMissingFavicon: (tabUrl: string, faviconUrl: string) => {
+    const {
+      activeWorkspaceId,
+      activeProfileId,
+      workspaceDataCache,
+      pinnedLinksCache,
+      profiles,
+      workspaces,
+      pat,
+      gistId,
+    } = get();
+
+    let workspaceUpdated = false;
+    let pinnedUpdated = false;
+
+    // Check workspace links
+    if (activeWorkspaceId && workspaceDataCache[activeWorkspaceId]) {
+      const currentData = workspaceDataCache[activeWorkspaceId];
+      const updatedLinks = currentData.links.map((link) => {
+        // Only populate if URL matches and favicon is empty
+        if (link.url === tabUrl && !link.favicon) {
+          workspaceUpdated = true;
+          return { ...link, favicon: faviconUrl };
+        }
+        return link;
+      });
+
+      if (workspaceUpdated) {
+        const updatedData = { ...currentData, links: updatedLinks, updatedAt: Date.now() };
+        set((state) => ({
+          workspaceDataCache: {
+            ...state.workspaceDataCache,
+            [activeWorkspaceId]: updatedData,
+          },
+        }));
+
+        // Save to portable cache
+        savePortable({
+          profiles,
+          workspaces,
+          workspaceDataCache: {
+            ...workspaceDataCache,
+            [activeWorkspaceId]: updatedData,
+          },
+          pinnedLinksCache,
+        });
+
+        // Queue debounced sync
+        get().saveWorkspace();
+      }
+    }
+
+    // Check pinned links
+    if (activeProfileId && pinnedLinksCache[activeProfileId]) {
+      const profile = profiles.find((p) => p.id === activeProfileId);
+      const currentLinks = pinnedLinksCache[activeProfileId];
+      const updatedLinks = currentLinks.map((link) => {
+        // Only populate if URL matches and favicon is empty
+        if (link.url === tabUrl && !link.favicon) {
+          pinnedUpdated = true;
+          return { ...link, favicon: faviconUrl };
+        }
+        return link;
+      });
+
+      if (pinnedUpdated && profile) {
+        set((state) => ({
+          pinnedLinksCache: {
+            ...state.pinnedLinksCache,
+            [activeProfileId]: updatedLinks,
+          },
+        }));
+
+        // Save to portable cache
+        savePortable({
+          profiles,
+          workspaces,
+          workspaceDataCache,
+          pinnedLinksCache: {
+            ...pinnedLinksCache,
+            [activeProfileId]: updatedLinks,
+          },
+        });
+
+        // Save to profile settings
+        if (pat && gistId) {
+          saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedLinks }, pat).catch(
+            () => {}
+          );
+        }
+      }
+    }
   },
 
   // ============================================================================

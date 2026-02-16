@@ -68,17 +68,8 @@ function SortablePinnedLinkItem({
   };
 
   const getFaviconDisplay = () => {
-    // Use stored favicon if available, otherwise derive from URL
-    if (link.favicon) {
-      return link.favicon;
-    }
-    try {
-      const urlObj = new URL(link.url);
-      // DuckDuckGo's favicon service is more reliable than Google's
-      return `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico`;
-    } catch {
-      return null;
-    }
+    // Only show stored favicon, no fallback
+    return link.favicon || null;
   };
 
   const faviconUrl = getFaviconDisplay();
