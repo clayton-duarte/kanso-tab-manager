@@ -9,6 +9,8 @@ import {
   Input,
   Popover,
   Portal,
+  Dialog,
+  Button,
 } from '@chakra-ui/react';
 import {
   DndContext,
@@ -25,7 +27,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useState, useEffect, useCallback } from 'react';
-import { IconPlus, IconCheck, IconX } from '@tabler/icons-react';
+import { IconPlus, IconCheck, IconX, IconRefresh } from '@tabler/icons-react';
 import { TopBar } from './components/TopBar';
 import { Sidebar } from './components/Sidebar';
 import { LinkCard } from './components/LinkCard';
@@ -46,10 +48,30 @@ export function DashboardLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addLinkOpen, setAddLinkOpen] = useState(false);
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const reorderLinks = useAppStore((state) => state.reorderLinks);
   const addLink = useAppStore((state) => state.addLink);
+  const replaceAllLinks = useAppStore((state) => state.replaceAllLinks);
   const accentColor = useAppStore((state) => state.accentColor);
+
+  // Handle replacing all links with current tabs
+  const handleReplaceAllLinks = useCallback(async () => {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const validTabs = tabs.filter(
+      (tab) =>
+        !tab.pinned &&
+        tab.url &&
+        (tab.url.startsWith('http://') || tab.url.startsWith('https://'))
+    );
+    const links = validTabs.map((tab) => ({
+      url: tab.url!,
+      title: tab.title || extractTitleFromUrl(tab.url!),
+      favicon: tab.favIconUrl || undefined,
+    }));
+    replaceAllLinks(links);
+    setReplaceConfirmOpen(false);
+  }, [replaceAllLinks]);
 
   // Handle adding a link
   const handleAddLink = useCallback(
@@ -209,6 +231,15 @@ export function DashboardLayout() {
                   <Text fontSize="sm" color="fg.subtle">
                     {links.length} {links.length === 1 ? 'link' : 'links'}
                   </Text>
+                  <IconButton
+                    aria-label="Replace all links with current tabs"
+                    size="xs"
+                    variant="ghost"
+                    colorPalette={accentColor}
+                    onClick={() => setReplaceConfirmOpen(true)}
+                  >
+                    <IconRefresh size={16} />
+                  </IconButton>
                   <Popover.Root
                     open={addLinkOpen}
                     onOpenChange={(e) => {
@@ -297,6 +328,48 @@ export function DashboardLayout() {
           )}
         </DropZone>
       </GridItem>
+
+      {/* Replace All Links Confirmation Dialog */}
+      <Dialog.Root
+        open={replaceConfirmOpen}
+        onOpenChange={(e) => setReplaceConfirmOpen(e.open)}
+        placement="center"
+      >
+        <Portal>
+          <Dialog.Backdrop />
+          <Dialog.Positioner>
+            <Dialog.Content>
+              <Dialog.Header>
+                <Dialog.Title>Replace All Links?</Dialog.Title>
+              </Dialog.Header>
+              <Dialog.Body>
+                <Text color="fg.muted">
+                  This will replace all links in this workspace with your
+                  currently open tabs (excluding pinned tabs). This action
+                  cannot be undone.
+                </Text>
+              </Dialog.Body>
+              <Dialog.Footer>
+                <Flex gap={2}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setReplaceConfirmOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="solid"
+                    colorPalette={accentColor}
+                    onClick={handleReplaceAllLinks}
+                  >
+                    Replace
+                  </Button>
+                </Flex>
+              </Dialog.Footer>
+            </Dialog.Content>
+          </Dialog.Positioner>
+        </Portal>
+      </Dialog.Root>
 
       {/* Settings Drawer */}
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />

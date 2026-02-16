@@ -1571,6 +1571,74 @@ export const useAppStore = create<AppStore>((set, get) => ({
     get().saveWorkspace();
   },
 
+  replaceAllLinks: (links: Array<{ url: string; title: string; favicon?: string }>) => {
+    const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
+      get();
+    if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
+
+    // Convert to LinkItems with IDs
+    const newLinks: LinkItem[] = links.map((link) => ({
+      id: nanoid(),
+      url: link.url,
+      title: link.title,
+      favicon: link.favicon,
+      pinned: false,
+    }));
+
+    const currentData = workspaceDataCache[activeWorkspaceId];
+    const oldLinks = currentData.links;
+    const updatedData = {
+      ...currentData,
+      links: newLinks,
+      updatedAt: Date.now(),
+    };
+
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    }));
+
+    // Close tabs for removed links (non-pinned only)
+    const newUrls = new Set(newLinks.map((l) => l.url));
+    oldLinks.forEach((link) => {
+      if (!newUrls.has(link.url)) {
+        chrome.tabs.query({ url: link.url, pinned: false }).then((tabs) => {
+          const tab = tabs[0];
+          if (tab?.id) {
+            chrome.tabs.remove(tab.id).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    });
+
+    // Open tabs for new links that aren't already open
+    const oldUrls = new Set(oldLinks.map((l) => l.url));
+    newLinks.forEach((link) => {
+      if (!oldUrls.has(link.url)) {
+        chrome.tabs.query({ url: link.url }).then((tabs) => {
+          if (tabs.length === 0) {
+            chrome.tabs.create({ url: link.url, active: false }).catch(() => {});
+          }
+        }).catch(() => {});
+      }
+    });
+
+    // Save to portable cache immediately
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedData,
+      },
+    });
+
+    // Queue debounced sync to Gist
+    get().saveWorkspace();
+  },
+
   updateLink: (linkId: string, updates: Partial<LinkItem>) => {
     const { activeWorkspaceId, workspaceDataCache, profiles, workspaces } =
       get();

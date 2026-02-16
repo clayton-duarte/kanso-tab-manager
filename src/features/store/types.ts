@@ -156,6 +156,8 @@ export interface AppActions {
   addLink: (url: string, title: string, favicon?: string) => string | undefined;
   /** Remove a link from the active workspace */
   removeLink: (linkId: string) => void;
+  /** Replace all links in the active workspace with new ones */
+  replaceAllLinks: (links: Array<{ url: string; title: string; favicon?: string }>) => void;
   /** Update a link's properties */
   updateLink: (linkId: string, updates: Partial<LinkItem>) => void;
   /** Toggle a link's pinned status */
