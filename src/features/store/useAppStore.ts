@@ -1495,6 +1495,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       },
     }));
 
+    // Open the tab if not already open (inactive, not pinned)
+    chrome.tabs.query({ url }).then((tabs) => {
+      if (tabs.length === 0) {
+        chrome.tabs.create({ url, active: false }).catch(() => {});
+      }
+    }).catch(() => {});
+
     // Save to portable cache immediately
     savePortable({
       profiles,
@@ -1517,6 +1524,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     if (!activeWorkspaceId || !workspaceDataCache[activeWorkspaceId]) return;
 
     const currentData = workspaceDataCache[activeWorkspaceId];
+    const linkToRemove = currentData.links.find((l) => l.id === linkId);
     const updatedData = {
       ...currentData,
       links: currentData.links.filter((l) => l.id !== linkId),
@@ -1529,6 +1537,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
         [activeWorkspaceId]: updatedData,
       },
     }));
+
+    // Close the tab if it's open (non-pinned only)
+    if (linkToRemove) {
+      chrome.tabs.query({ url: linkToRemove.url, pinned: false }).then((tabs) => {
+        const tab = tabs[0];
+        if (tab?.id) {
+          chrome.tabs.remove(tab.id).catch(() => {});
+        }
+      }).catch(() => {});
+    }
 
     // Save to portable cache immediately
     savePortable({
