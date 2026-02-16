@@ -112,7 +112,7 @@ function SortablePinnedLinkItem({
           <IconLink size={14} />
         </Box>
       )}
-      <Text fontSize="sm" flex={1} lineClamp={1}>
+      <Text fontSize="sm" flex={1} minW={0} lineClamp={1}>
         {link.title || link.url}
       </Text>
       <Box onClick={(e) => e.stopPropagation()}>

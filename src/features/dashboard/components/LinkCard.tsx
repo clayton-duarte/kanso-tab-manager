@@ -105,6 +105,7 @@ export function LinkCard({ link }: LinkCardProps) {
           {/* Content area - draggable to pins (native HTML5 drag) */}
           <Flex
             flex={1}
+            minW={0}
             align="center"
             draggable="true"
             onDragStart={handleNativeDragStart}
@@ -131,7 +132,7 @@ export function LinkCard({ link }: LinkCardProps) {
             )}
 
             {/* Contents */}
-            <Flex direction="column" flex={1} py={2} gap={0} minW={0}>
+            <Flex direction="column" flex={1} py={2} gap={0} minW={0} overflow="hidden">
               <Text fontSize="sm" fontWeight="medium" lineClamp={1}>
                 {link.title}
               </Text>
