@@ -9,6 +9,7 @@ import {
   Menu,
   Portal,
   Switch,
+  Image,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -40,6 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
+import { closeAllTabs } from '@/shared/utils/chromeTabs';
 import type { Profile } from '@/features/github/types';
 
 interface SortableProfileItemProps {
@@ -249,7 +251,17 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     >
       <Flex justify="space-between" align="center">
         <HStack gap={0}>
-          <Box w="240px" px={4} borderRightWidth="1px" borderColor="border">
+          <HStack
+            w="240px"
+            px={4}
+            borderRightWidth="1px"
+            borderColor="border"
+            gap={2}
+            cursor="pointer"
+            onClick={closeAllTabs}
+            title="Close all tabs"
+          >
+            <Image src="/icons/icon48.png" alt="Kanso" boxSize="24px" />
             <Text
               fontSize="lg"
               fontWeight="bold"
@@ -258,7 +270,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             >
               Kanso
             </Text>
-          </Box>
+          </HStack>
 
           <HStack gap={0}>
             <DndContext
