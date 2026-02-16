@@ -5,8 +5,7 @@ import {
   IconButton,
   Flex,
   Input,
-  HStack,
-  Menu,
+  Popover,
   Portal,
 } from '@chakra-ui/react';
 import {
@@ -14,11 +13,10 @@ import {
   IconCheck,
   IconX,
   IconTrash,
-  IconPencil,
   IconGripVertical,
   IconChevronDown,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -44,7 +42,7 @@ interface SortableWorkspaceItemProps {
   isActive: boolean;
   accentColor: string;
   onSwitch: () => void;
-  onStartRename: () => void;
+  onRename: (newName: string) => void;
   onDelete: () => void;
 }
 
@@ -53,9 +51,19 @@ function SortableWorkspaceItem({
   isActive,
   accentColor,
   onSwitch,
-  onStartRename,
+  onRename,
   onDelete,
 }: SortableWorkspaceItemProps) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(workspace.name);
+
+  // Reset form when popover opens
+  useEffect(() => {
+    if (open) {
+      setName(workspace.name);
+    }
+  }, [open, workspace.name]);
+
   const {
     attributes,
     listeners,
@@ -69,6 +77,31 @@ function SortableWorkspaceItem({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleSave = () => {
+    if (name.trim() && name.trim() !== workspace.name) {
+      onRename(name.trim());
+    }
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    setOpen(false);
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
   };
 
   return (
@@ -94,11 +127,15 @@ function SortableWorkspaceItem({
       >
         <IconGripVertical size={14} />
       </Box>
-      <Text fontSize="sm" flex={1} lineClamp={1}>
+      <Text fontSize="sm" flex={1} minW={0} lineClamp={1}>
         {workspace.name}
       </Text>
-      <Menu.Root>
-        <Menu.Trigger asChild>
+      <Popover.Root
+        open={open}
+        onOpenChange={(e) => setOpen(e.open)}
+        positioning={{ placement: 'bottom-end' }}
+      >
+        <Popover.Trigger asChild>
           <IconButton
             aria-label="Workspace menu"
             size="xs"
@@ -108,22 +145,69 @@ function SortableWorkspaceItem({
           >
             <IconChevronDown size={14} />
           </IconButton>
-        </Menu.Trigger>
+        </Popover.Trigger>
         <Portal>
-          <Menu.Positioner>
-            <Menu.Content>
-              <Menu.Item value="edit" onClick={onStartRename}>
-                <IconPencil size={14} />
-                Edit
-              </Menu.Item>
-              <Menu.Item value="delete" color="fg.error" onClick={onDelete}>
-                <IconTrash size={14} />
-                Delete
-              </Menu.Item>
-            </Menu.Content>
-          </Menu.Positioner>
+          <Popover.Positioner>
+            <Popover.Content
+              w="200px"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Popover.Body p={3}>
+                <VStack gap={3} align="stretch">
+                  {/* Name input */}
+                  <Box>
+                    <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                      Name
+                    </Text>
+                    <Input
+                      size="sm"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Workspace name"
+                      variant="outline"
+                      onKeyDown={handleKeyDown}
+                      autoFocus
+                    />
+                  </Box>
+
+                  {/* Action buttons */}
+                  <Flex justify="space-between" pt={2}>
+                    <IconButton
+                      aria-label="Delete"
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={handleDelete}
+                      title="Delete"
+                    >
+                      <IconTrash size={14} />
+                    </IconButton>
+                    <Flex gap={1}>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        onClick={handleCancel}
+                      >
+                        <IconX size={14} />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Save"
+                        size="xs"
+                        variant="solid"
+                        colorPalette={accentColor}
+                        onClick={handleSave}
+                      >
+                        <IconCheck size={14} />
+                      </IconButton>
+                    </Flex>
+                  </Flex>
+                </VStack>
+              </Popover.Body>
+            </Popover.Content>
+          </Popover.Positioner>
         </Portal>
-      </Menu.Root>
+      </Popover.Root>
     </Flex>
   );
 }
@@ -142,12 +226,8 @@ export function Sidebar() {
     accentColor,
   } = useAppStore();
 
-  const [isCreating, setIsCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
-  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
-    null
-  );
-  const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
 
   // Get current profile name
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
@@ -162,7 +242,7 @@ export function Sidebar() {
       const name = newWorkspaceName.trim();
       // Reset UI immediately (optimistic)
       setNewWorkspaceName('');
-      setIsCreating(false);
+      setCreateOpen(false);
       // Sync in background
       await createWorkspace(name);
     }
@@ -172,35 +252,13 @@ export function Sidebar() {
     if (e.key === 'Enter') {
       handleCreateWorkspace();
     } else if (e.key === 'Escape') {
-      setIsCreating(false);
+      setCreateOpen(false);
       setNewWorkspaceName('');
     }
   };
 
   const handleDeleteWorkspace = async (workspaceId: string) => {
     await deleteWorkspace(workspaceId);
-  };
-
-  const handleStartRename = (workspace: { id: string; name: string }) => {
-    setEditingWorkspaceId(workspace.id);
-    setEditingWorkspaceName(workspace.name);
-  };
-
-  const handleRenameWorkspace = async () => {
-    if (editingWorkspaceId && editingWorkspaceName.trim()) {
-      await renameWorkspace(editingWorkspaceId, editingWorkspaceName.trim());
-    }
-    setEditingWorkspaceId(null);
-    setEditingWorkspaceName('');
-  };
-
-  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRenameWorkspace();
-    } else if (e.key === 'Escape') {
-      setEditingWorkspaceId(null);
-      setEditingWorkspaceName('');
-    }
   };
 
   const sensors = useSensors(
@@ -259,15 +317,71 @@ export function Sidebar() {
         >
           Workspaces
         </Text>
-        <IconButton
-          aria-label="Add workspace"
-          size="xs"
-          variant="ghost"
-          colorPalette={accentColor}
-          onClick={() => setIsCreating(true)}
+        <Popover.Root
+          open={createOpen}
+          onOpenChange={(e) => {
+            setCreateOpen(e.open);
+            if (!e.open) setNewWorkspaceName('');
+          }}
+          positioning={{ placement: 'bottom-end' }}
         >
-          <IconPlus size={14} />
-        </IconButton>
+          <Popover.Trigger asChild>
+            <IconButton
+              aria-label="Add workspace"
+              size="xs"
+              variant="ghost"
+              colorPalette={accentColor}
+            >
+              <IconPlus size={14} />
+            </IconButton>
+          </Popover.Trigger>
+          <Portal>
+            <Popover.Positioner>
+              <Popover.Content w="200px">
+                <Popover.Body p={3}>
+                  <VStack gap={3} align="stretch">
+                    <Box>
+                      <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                        Name
+                      </Text>
+                      <Input
+                        size="sm"
+                        placeholder="Workspace name"
+                        value={newWorkspaceName}
+                        onChange={(e) => setNewWorkspaceName(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        autoFocus
+                        variant="outline"
+                      />
+                    </Box>
+                    <Flex justify="flex-end" gap={1}>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => {
+                          setCreateOpen(false);
+                          setNewWorkspaceName('');
+                        }}
+                      >
+                        <IconX size={14} />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Create"
+                        size="xs"
+                        variant="solid"
+                        colorPalette={accentColor}
+                        onClick={handleCreateWorkspace}
+                      >
+                        <IconCheck size={14} />
+                      </IconButton>
+                    </Flex>
+                  </VStack>
+                </Popover.Body>
+              </Popover.Content>
+            </Popover.Positioner>
+          </Portal>
+        </Popover.Root>
       </Flex>
 
       <VStack gap={1} align="stretch">
@@ -280,89 +394,21 @@ export function Sidebar() {
             items={workspaceIds}
             strategy={verticalListSortingStrategy}
           >
-            {profileWorkspaces.map((workspace) =>
-              editingWorkspaceId === workspace.id ? (
-                <HStack key={workspace.id} gap={1} px={2}>
-                  <Input
-                    size="sm"
-                    value={editingWorkspaceName}
-                    onChange={(e) => setEditingWorkspaceName(e.target.value)}
-                    onKeyDown={handleRenameKeyDown}
-                    autoFocus
-                    variant="outline"
-                  />
-                  <IconButton
-                    aria-label="Confirm"
-                    size="xs"
-                    colorPalette={accentColor}
-                    onClick={handleRenameWorkspace}
-                  >
-                    <IconCheck size={14} />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Cancel"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={() => {
-                      setEditingWorkspaceId(null);
-                      setEditingWorkspaceName('');
-                    }}
-                  >
-                    <IconX size={14} />
-                  </IconButton>
-                </HStack>
-              ) : (
-                <SortableWorkspaceItem
-                  key={workspace.id}
-                  workspace={workspace}
-                  isActive={activeWorkspaceId === workspace.id}
-                  accentColor={accentColor}
-                  onSwitch={() => switchWorkspace(workspace.id)}
-                  onStartRename={() => handleStartRename(workspace)}
-                  onDelete={() => handleDeleteWorkspace(workspace.id)}
-                />
-              )
-            )}
+            {profileWorkspaces.map((workspace) => (
+              <SortableWorkspaceItem
+                key={workspace.id}
+                workspace={workspace}
+                isActive={activeWorkspaceId === workspace.id}
+                accentColor={accentColor}
+                onSwitch={() => switchWorkspace(workspace.id)}
+                onRename={(newName) => renameWorkspace(workspace.id, newName)}
+                onDelete={() => handleDeleteWorkspace(workspace.id)}
+              />
+            ))}
           </SortableContext>
         </DndContext>
 
-        {isCreating && (
-          <HStack gap={1} px={2}>
-            <Input
-              size="sm"
-              placeholder="Workspace name"
-              value={newWorkspaceName}
-              onChange={(e) => setNewWorkspaceName(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoFocus
-              variant="outline"
-            />
-            <IconButton
-              aria-label="Confirm"
-              size="xs"
-              variant="ghost"
-              colorPalette={accentColor}
-              onClick={handleCreateWorkspace}
-            >
-              <IconCheck size={14} />
-            </IconButton>
-            <IconButton
-              aria-label="Cancel"
-              size="xs"
-              variant="ghost"
-              colorPalette={accentColor}
-              onClick={() => {
-                setIsCreating(false);
-                setNewWorkspaceName('');
-              }}
-            >
-              <IconX size={14} />
-            </IconButton>
-          </HStack>
-        )}
-
-        {profileWorkspaces.length === 0 && !isCreating && (
+        {profileWorkspaces.length === 0 && (
           <Text
             fontSize="sm"
             color="fg.subtle"
@@ -375,7 +421,7 @@ export function Sidebar() {
               as="span"
               color={`${accentColor}.400`}
               cursor="pointer"
-              onClick={() => setIsCreating(true)}
+              onClick={() => setCreateOpen(true)}
             >
               Create one
             </Text>

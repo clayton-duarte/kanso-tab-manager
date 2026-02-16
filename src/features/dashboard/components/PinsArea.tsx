@@ -4,8 +4,10 @@ import {
   Text,
   IconButton,
   Input,
-  HStack,
+  VStack,
   Image,
+  Popover,
+  Portal,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -142,7 +144,7 @@ export function PinsArea() {
     accentColor,
   } = useAppStore();
 
-  const [isCreating, setIsCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [newUrl, setNewUrl] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -232,10 +234,10 @@ export function PinsArea() {
         // Add pinned link with title and favicon from Chrome (or fallbacks)
         addPinnedLink(url, title, favicon);
         setNewUrl('');
-        setIsCreating(false);
+        setCreateOpen(false);
       } catch {
         setNewUrl('');
-        setIsCreating(false);
+        setCreateOpen(false);
       }
     }
   };
@@ -244,7 +246,7 @@ export function PinsArea() {
     if (e.key === 'Enter') {
       handleCreateLink();
     } else if (e.key === 'Escape') {
-      setIsCreating(false);
+      setCreateOpen(false);
       setNewUrl('');
     }
   };
@@ -328,15 +330,71 @@ export function PinsArea() {
         >
           Pins
         </Text>
-        <IconButton
-          aria-label="Add pin"
-          size="xs"
-          variant="ghost"
-          colorPalette={accentColor}
-          onClick={() => setIsCreating(true)}
+        <Popover.Root
+          open={createOpen}
+          onOpenChange={(e) => {
+            setCreateOpen(e.open);
+            if (!e.open) setNewUrl('');
+          }}
+          positioning={{ placement: 'bottom-end' }}
         >
-          <IconPlus size={14} />
-        </IconButton>
+          <Popover.Trigger asChild>
+            <IconButton
+              aria-label="Add pin"
+              size="xs"
+              variant="ghost"
+              colorPalette={accentColor}
+            >
+              <IconPlus size={14} />
+            </IconButton>
+          </Popover.Trigger>
+          <Portal>
+            <Popover.Positioner>
+              <Popover.Content w="200px">
+                <Popover.Body p={3}>
+                  <VStack gap={3} align="stretch">
+                    <Box>
+                      <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                        URL
+                      </Text>
+                      <Input
+                        size="sm"
+                        placeholder="URL"
+                        value={newUrl}
+                        onChange={(e) => setNewUrl(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        autoFocus
+                        variant="outline"
+                      />
+                    </Box>
+                    <Flex justify="flex-end" gap={1}>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => {
+                          setCreateOpen(false);
+                          setNewUrl('');
+                        }}
+                      >
+                        <IconX size={14} />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Create"
+                        size="xs"
+                        variant="solid"
+                        colorPalette={accentColor}
+                        onClick={handleCreateLink}
+                      >
+                        <IconCheck size={14} />
+                      </IconButton>
+                    </Flex>
+                  </VStack>
+                </Popover.Body>
+              </Popover.Content>
+            </Popover.Positioner>
+          </Portal>
+        </Popover.Root>
       </Flex>
 
       <Box minH="40px">
@@ -362,42 +420,7 @@ export function PinsArea() {
           </SortableContext>
         </DndContext>
 
-        {isCreating && (
-          <HStack gap={1} px={2} py={1}>
-            <Input
-              size="sm"
-              placeholder="URL"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoFocus
-              variant="outline"
-            />
-            <IconButton
-              aria-label="Confirm"
-              size="xs"
-              variant="ghost"
-              colorPalette={accentColor}
-              onClick={handleCreateLink}
-            >
-              <IconCheck size={14} />
-            </IconButton>
-            <IconButton
-              aria-label="Cancel"
-              size="xs"
-              variant="ghost"
-              colorPalette={accentColor}
-              onClick={() => {
-                setIsCreating(false);
-                setNewUrl('');
-              }}
-            >
-              <IconX size={14} />
-            </IconButton>
-          </HStack>
-        )}
-
-        {pinnedLinks.length === 0 && !isCreating && !isDragOver && (
+        {pinnedLinks.length === 0 && !isDragOver && (
           <Text
             fontSize="xs"
             color="fg.subtle"

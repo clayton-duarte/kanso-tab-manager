@@ -6,9 +6,10 @@ import {
   Input,
   HStack,
   ProgressCircle,
-  Menu,
+  Popover,
   Portal,
   Switch,
+  VStack,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -17,12 +18,11 @@ import {
   IconX,
   IconGripVertical,
   IconChevronDown,
-  IconPencil,
   IconTrash,
   IconSun,
   IconMoon,
 } from '@tabler/icons-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -49,7 +49,7 @@ interface SortableProfileItemProps {
   isActive: boolean;
   accentColor: string;
   onSwitch: () => void;
-  onEdit: () => void;
+  onRename: (newName: string) => void;
   onDelete: () => void;
 }
 
@@ -58,9 +58,19 @@ function SortableProfileItem({
   isActive,
   accentColor,
   onSwitch,
-  onEdit,
+  onRename,
   onDelete,
 }: SortableProfileItemProps) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(profile.name);
+
+  // Reset form when popover opens
+  useEffect(() => {
+    if (open) {
+      setName(profile.name);
+    }
+  }, [open, profile.name]);
+
   const {
     attributes,
     listeners,
@@ -74,6 +84,31 @@ function SortableProfileItem({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleSave = () => {
+    if (name.trim() && name.trim() !== profile.name) {
+      onRename(name.trim());
+    }
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
+    setOpen(false);
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    setOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
   };
 
   return (
@@ -99,11 +134,15 @@ function SortableProfileItem({
       >
         <IconGripVertical size={14} />
       </Box>
-      <Text fontSize="sm" lineClamp={1}>
+      <Text fontSize="sm" minW={0} lineClamp={1}>
         {profile.name}
       </Text>
-      <Menu.Root>
-        <Menu.Trigger asChild>
+      <Popover.Root
+        open={open}
+        onOpenChange={(e) => setOpen(e.open)}
+        positioning={{ placement: 'bottom-end' }}
+      >
+        <Popover.Trigger asChild>
           <IconButton
             aria-label="Profile menu"
             size="xs"
@@ -113,22 +152,69 @@ function SortableProfileItem({
           >
             <IconChevronDown size={14} />
           </IconButton>
-        </Menu.Trigger>
+        </Popover.Trigger>
         <Portal>
-          <Menu.Positioner>
-            <Menu.Content>
-              <Menu.Item value="edit" onClick={onEdit}>
-                <IconPencil size={14} />
-                Edit
-              </Menu.Item>
-              <Menu.Item value="delete" color="fg.error" onClick={onDelete}>
-                <IconTrash size={14} />
-                Delete
-              </Menu.Item>
-            </Menu.Content>
-          </Menu.Positioner>
+          <Popover.Positioner>
+            <Popover.Content
+              w="200px"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Popover.Body p={3}>
+                <VStack gap={3} align="stretch">
+                  {/* Name input */}
+                  <Box>
+                    <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                      Name
+                    </Text>
+                    <Input
+                      size="sm"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Profile name"
+                      variant="outline"
+                      onKeyDown={handleKeyDown}
+                      autoFocus
+                    />
+                  </Box>
+
+                  {/* Action buttons */}
+                  <Flex justify="space-between" pt={2}>
+                    <IconButton
+                      aria-label="Delete"
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={handleDelete}
+                      title="Delete"
+                    >
+                      <IconTrash size={14} />
+                    </IconButton>
+                    <Flex gap={1}>
+                      <IconButton
+                        aria-label="Cancel"
+                        size="xs"
+                        variant="ghost"
+                        onClick={handleCancel}
+                      >
+                        <IconX size={14} />
+                      </IconButton>
+                      <IconButton
+                        aria-label="Save"
+                        size="xs"
+                        variant="solid"
+                        colorPalette={accentColor}
+                        onClick={handleSave}
+                      >
+                        <IconCheck size={14} />
+                      </IconButton>
+                    </Flex>
+                  </Flex>
+                </VStack>
+              </Popover.Body>
+            </Popover.Content>
+          </Popover.Positioner>
         </Portal>
-      </Menu.Root>
+      </Popover.Root>
     </Flex>
   );
 }
@@ -152,10 +238,8 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     colorMode,
     setColorMode,
   } = useAppStore();
-  const [isCreating, setIsCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
-  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
-  const [editingProfileName, setEditingProfileName] = useState('');
 
   // Resolve color mode for switch state (light switch: ON = light, OFF = dark)
   const isLightMode = useMemo(() => {
@@ -168,28 +252,6 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
   const handleToggleColorMode = () => {
     // Toggle between light and dark (explicit choice replaces system)
     setColorMode(isLightMode ? 'dark' : 'light');
-  };
-
-  const handleStartEdit = (profileId: string, currentName: string) => {
-    setEditingProfileId(profileId);
-    setEditingProfileName(currentName);
-  };
-
-  const handleRenameProfile = () => {
-    if (editingProfileId && editingProfileName.trim()) {
-      renameProfile(editingProfileId, editingProfileName.trim());
-      setEditingProfileId(null);
-      setEditingProfileName('');
-    }
-  };
-
-  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRenameProfile();
-    } else if (e.key === 'Escape') {
-      setEditingProfileId(null);
-      setEditingProfileName('');
-    }
   };
 
   const handleDeleteProfile = (profileId: string) => {
@@ -228,7 +290,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     if (newProfileName.trim()) {
       createProfile(newProfileName.trim());
       setNewProfileName('');
-      setIsCreating(false);
+      setCreateOpen(false);
     }
   };
 
@@ -236,7 +298,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
     if (e.key === 'Enter') {
       handleCreateProfile();
     } else if (e.key === 'Escape') {
-      setIsCreating(false);
+      setCreateOpen(false);
       setNewProfileName('');
     }
   };
@@ -282,99 +344,85 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
                 items={profileIds}
                 strategy={horizontalListSortingStrategy}
               >
-                {profiles.map((profile) =>
-                  editingProfileId === profile.id ? (
-                    <HStack key={profile.id} gap={1} px={2}>
-                      <Input
-                        size="sm"
-                        value={editingProfileName}
-                        onChange={(e) => setEditingProfileName(e.target.value)}
-                        onKeyDown={handleRenameKeyDown}
-                        autoFocus
-                        width="100px"
-                        variant="outline"
-                      />
-                      <IconButton
-                        aria-label="Confirm"
-                        size="xs"
-                        variant="ghost"
-                        colorPalette={accentColor}
-                        onClick={handleRenameProfile}
-                      >
-                        <IconCheck size={14} />
-                      </IconButton>
-                      <IconButton
-                        aria-label="Cancel"
-                        size="xs"
-                        variant="ghost"
-                        colorPalette={accentColor}
-                        onClick={() => {
-                          setEditingProfileId(null);
-                          setEditingProfileName('');
-                        }}
-                      >
-                        <IconX size={14} />
-                      </IconButton>
-                    </HStack>
-                  ) : (
-                    <SortableProfileItem
-                      key={profile.id}
-                      profile={profile}
-                      isActive={profile.id === activeProfileId}
-                      accentColor={accentColor}
-                      onSwitch={() => switchProfile(profile.id)}
-                      onEdit={() => handleStartEdit(profile.id, profile.name)}
-                      onDelete={() => handleDeleteProfile(profile.id)}
-                    />
-                  )
-                )}
+                {profiles.map((profile) => (
+                  <SortableProfileItem
+                    key={profile.id}
+                    profile={profile}
+                    isActive={profile.id === activeProfileId}
+                    accentColor={accentColor}
+                    onSwitch={() => switchProfile(profile.id)}
+                    onRename={(newName) => renameProfile(profile.id, newName)}
+                    onDelete={() => handleDeleteProfile(profile.id)}
+                  />
+                ))}
               </SortableContext>
             </DndContext>
 
-            {isCreating ? (
-              <HStack gap={1} px={2}>
-                <Input
-                  size="sm"
-                  placeholder="Profile name"
-                  value={newProfileName}
-                  onChange={(e) => setNewProfileName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                  width="120px"
-                  variant="outline"
-                />
+            <Popover.Root
+              open={createOpen}
+              onOpenChange={(e) => {
+                setCreateOpen(e.open);
+                if (!e.open) setNewProfileName('');
+              }}
+              positioning={{ placement: 'bottom-end' }}
+            >
+              <Popover.Trigger asChild>
                 <IconButton
-                  aria-label="Confirm"
-                  size="xs"
-                  colorPalette={accentColor}
-                  onClick={handleCreateProfile}
-                >
-                  <IconCheck size={14} />
-                </IconButton>
-                <IconButton
-                  aria-label="Cancel"
+                  aria-label="Add profile"
                   size="xs"
                   variant="ghost"
                   colorPalette={accentColor}
-                  onClick={() => {
-                    setIsCreating(false);
-                    setNewProfileName('');
-                  }}
                 >
-                  <IconX size={14} />
+                  <IconPlus size={16} />
                 </IconButton>
-              </HStack>
-            ) : (
-              <IconButton
-                aria-label="Add profile"
-                size="xs"
-                variant="ghost"
-                colorPalette={accentColor}
-                onClick={() => setIsCreating(true)}
-              >
-                <IconPlus size={16} />
-              </IconButton>
-            )}
+              </Popover.Trigger>
+              <Portal>
+                <Popover.Positioner>
+                  <Popover.Content w="200px">
+                    <Popover.Body p={3}>
+                      <VStack gap={3} align="stretch">
+                        <Box>
+                          <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                            Name
+                          </Text>
+                          <Input
+                            size="sm"
+                            placeholder="Profile name"
+                            value={newProfileName}
+                            onChange={(e) => setNewProfileName(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            autoFocus
+                            variant="outline"
+                          />
+                        </Box>
+                        <Flex justify="flex-end" gap={1}>
+                          <IconButton
+                            aria-label="Cancel"
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => {
+                              setCreateOpen(false);
+                              setNewProfileName('');
+                            }}
+                          >
+                            <IconX size={14} />
+                          </IconButton>
+                          <IconButton
+                            aria-label="Create"
+                            size="xs"
+                            variant="solid"
+                            colorPalette={accentColor}
+                            onClick={handleCreateProfile}
+                          >
+                            <IconCheck size={14} />
+                          </IconButton>
+                        </Flex>
+                      </VStack>
+                    </Popover.Body>
+                  </Popover.Content>
+                </Popover.Positioner>
+              </Portal>
+            </Popover.Root>
           </HStack>
         </HStack>
 

@@ -7,7 +7,8 @@ import {
   VStack,
   IconButton,
   Input,
-  HStack,
+  Popover,
+  Portal,
 } from '@chakra-ui/react';
 import {
   DndContext,
@@ -43,7 +44,7 @@ import {
 
 export function DashboardLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [addLinkOpen, setAddLinkOpen] = useState(false);
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const activeWorkspaceData = useAppStore(selectActiveWorkspaceData);
   const reorderLinks = useAppStore((state) => state.reorderLinks);
@@ -74,7 +75,7 @@ export function DashboardLayout() {
       addLink(fullUrl, title, favicon);
 
       setNewLinkUrl('');
-      setIsAddingLink(false);
+      setAddLinkOpen(false);
     },
     [addLink]
   );
@@ -114,7 +115,7 @@ export function DashboardLayout() {
     if (e.key === 'Enter') {
       handleAddLink(newLinkUrl);
     } else if (e.key === 'Escape') {
-      setIsAddingLink(false);
+      setAddLinkOpen(false);
       setNewLinkUrl('');
     }
   };
@@ -204,57 +205,77 @@ export function DashboardLayout() {
                 <Text fontSize="xl" fontWeight="bold" color="fg">
                   {activeWorkspaceData.name}
                 </Text>
-                <HStack gap={2}>
+                <Flex align="center" gap={2}>
                   <Text fontSize="sm" color="fg.subtle">
                     {links.length} {links.length === 1 ? 'link' : 'links'}
                   </Text>
-                  <IconButton
-                    aria-label="Add link"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={() => setIsAddingLink(true)}
-                  >
-                    <IconPlus size={16} />
-                  </IconButton>
-                </HStack>
-              </Flex>
-
-              {/* Add link form */}
-              {isAddingLink && (
-                <HStack gap={2} mb={4}>
-                  <Input
-                    placeholder="Paste or type URL..."
-                    value={newLinkUrl}
-                    onChange={(e) => setNewLinkUrl(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    autoFocus
-                    size="sm"
-                    variant="outline"
-                    flex={1}
-                  />
-                  <IconButton
-                    aria-label="Add"
-                    size="sm"
-                    variant="solid"
-                    colorPalette={accentColor}
-                    onClick={() => handleAddLink(newLinkUrl)}
-                  >
-                    <IconCheck size={16} />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Cancel"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsAddingLink(false);
-                      setNewLinkUrl('');
+                  <Popover.Root
+                    open={addLinkOpen}
+                    onOpenChange={(e) => {
+                      setAddLinkOpen(e.open);
+                      if (!e.open) setNewLinkUrl('');
                     }}
+                    positioning={{ placement: 'bottom-end' }}
                   >
-                    <IconX size={16} />
-                  </IconButton>
-                </HStack>
-              )}
+                    <Popover.Trigger asChild>
+                      <IconButton
+                        aria-label="Add link"
+                        size="xs"
+                        variant="ghost"
+                        colorPalette={accentColor}
+                      >
+                        <IconPlus size={16} />
+                      </IconButton>
+                    </Popover.Trigger>
+                    <Portal>
+                      <Popover.Positioner>
+                        <Popover.Content w="280px">
+                          <Popover.Body p={3}>
+                            <VStack gap={3} align="stretch">
+                              <Box>
+                                <Text fontSize="xs" fontWeight="medium" color="fg.muted" mb={1}>
+                                  URL
+                                </Text>
+                                <Input
+                                  placeholder="Paste or type URL..."
+                                  value={newLinkUrl}
+                                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                                  onKeyDown={handleKeyDown}
+                                  autoFocus
+                                  size="sm"
+                                  variant="outline"
+                                />
+                              </Box>
+                              <Flex justify="flex-end" gap={1}>
+                                <IconButton
+                                  aria-label="Cancel"
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setAddLinkOpen(false);
+                                    setNewLinkUrl('');
+                                  }}
+                                >
+                                  <IconX size={14} />
+                                </IconButton>
+                                <IconButton
+                                  aria-label="Add"
+                                  size="xs"
+                                  variant="solid"
+                                  colorPalette={accentColor}
+                                  onClick={() => handleAddLink(newLinkUrl)}
+                                >
+                                  <IconCheck size={14} />
+                                </IconButton>
+                              </Flex>
+                            </VStack>
+                          </Popover.Body>
+                        </Popover.Content>
+                      </Popover.Positioner>
+                    </Portal>
+                  </Popover.Root>
+                </Flex>
+              </Flex>
 
               <DndContext
                 sensors={sensors}
