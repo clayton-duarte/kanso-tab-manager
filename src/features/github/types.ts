@@ -10,6 +10,16 @@ export interface LinkItem {
 }
 
 /**
+ * Pinned link stored in profile settings
+ */
+export interface PinnedLink {
+  id: string;
+  url: string;
+  title: string;
+  favicon?: string;
+}
+
+/**
  * Workspace data stored in a Gist file
  * Filename format: [Profile]__[Workspace].json
  */
@@ -61,12 +71,15 @@ export interface ProfileSettings {
   createdAt: number;
   /** Ordered list of workspace IDs for this profile */
   workspaceOrder?: string[];
+  /** Pinned links for this profile */
+  pinnedLinks?: PinnedLink[];
 }
 
 export const DEFAULT_PROFILE_SETTINGS: Omit<ProfileSettings, 'name'> = {
   accentColor: 'gray',
   createdAt: Date.now(),
   workspaceOrder: [],
+  pinnedLinks: [],
 };
 
 /**

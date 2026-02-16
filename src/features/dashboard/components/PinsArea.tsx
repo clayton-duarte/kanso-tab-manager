@@ -1,13 +1,13 @@
 import {
   Box,
-  VStack,
+  Flex,
   Text,
   IconButton,
-  Flex,
   Input,
   HStack,
   Menu,
   Portal,
+  Image,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -17,6 +17,7 @@ import {
   IconPencil,
   IconGripVertical,
   IconChevronDown,
+  IconPin,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import {
@@ -36,26 +37,22 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
-import type { WorkspaceMeta } from '@/features/github/types';
-import { PinsArea } from './PinsArea';
+import type { PinnedLink } from '@/features/github/types';
 
-interface SortableWorkspaceItemProps {
-  workspace: WorkspaceMeta;
-  isActive: boolean;
+interface SortablePinnedLinkItemProps {
+  link: PinnedLink;
   accentColor: string;
-  onSwitch: () => void;
   onStartRename: () => void;
   onDelete: () => void;
 }
 
-function SortableWorkspaceItem({
-  workspace,
-  isActive,
+function SortablePinnedLinkItem({
+  link,
   accentColor,
-  onSwitch,
   onStartRename,
   onDelete,
-}: SortableWorkspaceItemProps) {
+}: SortablePinnedLinkItemProps) {
+  const [faviconError, setFaviconError] = useState(false);
   const {
     attributes,
     listeners,
@@ -63,12 +60,27 @@ function SortableWorkspaceItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: workspace.id });
+  } = useSortable({ id: link.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  const getFaviconUrl = () => {
+    try {
+      const urlObj = new URL(link.url);
+      return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`;
+    } catch {
+      return null;
+    }
+  };
+
+  const faviconUrl = getFaviconUrl();
+
+  const handleOpenLink = () => {
+    window.location.href = link.url;
   };
 
   return (
@@ -78,12 +90,9 @@ function SortableWorkspaceItem({
       align="center"
       gap={2}
       px={2}
-      py={2}
+      py={1.5}
       cursor="pointer"
-      bg={isActive ? `${accentColor}.subtle` : 'transparent'}
-      borderLeftWidth="2px"
-      borderLeftColor={isActive ? `${accentColor}.border` : 'transparent'}
-      onClick={onSwitch}
+      onClick={handleOpenLink}
     >
       <Box
         {...attributes}
@@ -94,13 +103,27 @@ function SortableWorkspaceItem({
       >
         <IconGripVertical size={14} />
       </Box>
+      {faviconUrl && !faviconError ? (
+        <Image
+          src={faviconUrl}
+          alt=""
+          w={4}
+          h={4}
+          borderRadius="sm"
+          onError={() => setFaviconError(true)}
+        />
+      ) : (
+        <Box color="fg.muted">
+          <IconPin size={14} />
+        </Box>
+      )}
       <Text fontSize="sm" flex={1} lineClamp={1}>
-        {workspace.name}
+        {link.title || link.url}
       </Text>
       <Menu.Root>
         <Menu.Trigger asChild>
           <IconButton
-            aria-label="Workspace menu"
+            aria-label="Pin menu"
             size="xs"
             variant="ghost"
             colorPalette={accentColor}
@@ -128,78 +151,78 @@ function SortableWorkspaceItem({
   );
 }
 
-export function Sidebar() {
+export function PinsArea() {
   const {
-    profiles,
-    workspaces,
     activeProfileId,
-    activeWorkspaceId,
-    switchWorkspace,
-    createWorkspace,
-    deleteWorkspace,
-    renameWorkspace,
-    reorderWorkspaces,
+    pinnedLinksCache,
+    addPinnedLink,
+    removePinnedLink,
+    updatePinnedLink,
+    reorderPinnedLinks,
     accentColor,
   } = useAppStore();
 
   const [isCreating, setIsCreating] = useState(false);
-  const [newWorkspaceName, setNewWorkspaceName] = useState('');
-  const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(
-    null
-  );
-  const [editingWorkspaceName, setEditingWorkspaceName] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingUrl, setEditingUrl] = useState('');
 
-  // Get current profile name
-  const activeProfile = profiles.find((p) => p.id === activeProfileId);
+  const pinnedLinks = activeProfileId
+    ? pinnedLinksCache[activeProfileId] || []
+    : [];
 
-  // Filter workspaces for current profile
-  const profileWorkspaces = workspaces.filter(
-    (w) => w.profile === activeProfile?.name
-  );
-
-  const handleCreateWorkspace = async () => {
-    if (newWorkspaceName.trim()) {
-      const name = newWorkspaceName.trim();
-      // Reset UI immediately (optimistic)
-      setNewWorkspaceName('');
-      setIsCreating(false);
-      // Sync in background
-      await createWorkspace(name);
+  const handleCreateLink = async () => {
+    if (newUrl.trim()) {
+      try {
+        const url = newUrl.trim().startsWith('http')
+          ? newUrl.trim()
+          : `https://${newUrl.trim()}`;
+        const urlObj = new URL(url);
+        addPinnedLink(url, urlObj.hostname);
+        setNewUrl('');
+        setIsCreating(false);
+      } catch {
+        setNewUrl('');
+        setIsCreating(false);
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleCreateWorkspace();
+      handleCreateLink();
     } else if (e.key === 'Escape') {
       setIsCreating(false);
-      setNewWorkspaceName('');
+      setNewUrl('');
     }
   };
 
-  const handleDeleteWorkspace = async (workspaceId: string) => {
-    await deleteWorkspace(workspaceId);
+  const handleStartRename = (link: PinnedLink) => {
+    setEditingLinkId(link.id);
+    setEditingTitle(link.title);
+    setEditingUrl(link.url);
   };
 
-  const handleStartRename = (workspace: { id: string; name: string }) => {
-    setEditingWorkspaceId(workspace.id);
-    setEditingWorkspaceName(workspace.name);
-  };
-
-  const handleRenameWorkspace = async () => {
-    if (editingWorkspaceId && editingWorkspaceName.trim()) {
-      await renameWorkspace(editingWorkspaceId, editingWorkspaceName.trim());
+  const handleSaveEdit = () => {
+    if (editingLinkId && editingTitle.trim() && editingUrl.trim()) {
+      updatePinnedLink(editingLinkId, {
+        title: editingTitle.trim(),
+        url: editingUrl.trim(),
+      });
     }
-    setEditingWorkspaceId(null);
-    setEditingWorkspaceName('');
+    setEditingLinkId(null);
+    setEditingTitle('');
+    setEditingUrl('');
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleRenameWorkspace();
+      handleSaveEdit();
     } else if (e.key === 'Escape') {
-      setEditingWorkspaceId(null);
-      setEditingWorkspaceName('');
+      setEditingLinkId(null);
+      setEditingTitle('');
+      setEditingUrl('');
     }
   };
 
@@ -218,30 +241,19 @@ export function Sidebar() {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      const oldIndex = profileWorkspaces.findIndex((w) => w.id === active.id);
-      const newIndex = profileWorkspaces.findIndex((w) => w.id === over.id);
+      const oldIndex = pinnedLinks.findIndex((l) => l.id === active.id);
+      const newIndex = pinnedLinks.findIndex((l) => l.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        reorderWorkspaces(oldIndex, newIndex);
+        reorderPinnedLinks(oldIndex, newIndex);
       }
     }
   };
 
-  const workspaceIds = profileWorkspaces.map((w) => w.id);
+  const linkIds = pinnedLinks.map((l) => l.id);
 
   return (
-    <Box
-      as="aside"
-      bg="bg.subtle"
-      borderRightWidth="1px"
-      borderColor="border"
-      w="240px"
-      minW="240px"
-      h="100%"
-      overflowY="auto"
-    >
-      <PinsArea />
-
+    <Box borderBottomWidth="1px" borderColor="border.muted">
       <Flex
         justify="space-between"
         align="center"
@@ -256,10 +268,10 @@ export function Sidebar() {
           color="fg.muted"
           textTransform="uppercase"
         >
-          Workspaces
+          Pins
         </Text>
         <IconButton
-          aria-label="Add workspace"
+          aria-label="Add pin"
           size="xs"
           variant="ghost"
           colorPalette={accentColor}
@@ -269,57 +281,67 @@ export function Sidebar() {
         </IconButton>
       </Flex>
 
-      <VStack gap={1} align="stretch">
+      <Box>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
         >
           <SortableContext
-            items={workspaceIds}
+            items={linkIds}
             strategy={verticalListSortingStrategy}
           >
-            {profileWorkspaces.map((workspace) =>
-              editingWorkspaceId === workspace.id ? (
-                <HStack key={workspace.id} gap={1} px={2}>
+            {pinnedLinks.map((link) =>
+              editingLinkId === link.id ? (
+                <Box key={link.id} px={2} py={1}>
                   <Input
                     size="sm"
-                    value={editingWorkspaceName}
-                    onChange={(e) => setEditingWorkspaceName(e.target.value)}
-                    onKeyDown={handleRenameKeyDown}
-                    autoFocus
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    placeholder="Title"
+                    mb={1}
                     variant="outline"
                   />
-                  <IconButton
-                    aria-label="Confirm"
-                    size="xs"
-                    colorPalette={accentColor}
-                    onClick={handleRenameWorkspace}
-                  >
-                    <IconCheck size={14} />
-                  </IconButton>
-                  <IconButton
-                    aria-label="Cancel"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette={accentColor}
-                    onClick={() => {
-                      setEditingWorkspaceId(null);
-                      setEditingWorkspaceName('');
-                    }}
-                  >
-                    <IconX size={14} />
-                  </IconButton>
-                </HStack>
+                  <HStack gap={1}>
+                    <Input
+                      size="sm"
+                      value={editingUrl}
+                      onChange={(e) => setEditingUrl(e.target.value)}
+                      onKeyDown={handleRenameKeyDown}
+                      placeholder="URL"
+                      autoFocus
+                      variant="outline"
+                    />
+                    <IconButton
+                      aria-label="Confirm"
+                      size="xs"
+                      colorPalette={accentColor}
+                      onClick={handleSaveEdit}
+                    >
+                      <IconCheck size={14} />
+                    </IconButton>
+                    <IconButton
+                      aria-label="Cancel"
+                      size="xs"
+                      variant="ghost"
+                      colorPalette={accentColor}
+                      onClick={() => {
+                        setEditingLinkId(null);
+                        setEditingTitle('');
+                        setEditingUrl('');
+                      }}
+                    >
+                      <IconX size={14} />
+                    </IconButton>
+                  </HStack>
+                </Box>
               ) : (
-                <SortableWorkspaceItem
-                  key={workspace.id}
-                  workspace={workspace}
-                  isActive={activeWorkspaceId === workspace.id}
+                <SortablePinnedLinkItem
+                  key={link.id}
+                  link={link}
                   accentColor={accentColor}
-                  onSwitch={() => switchWorkspace(workspace.id)}
-                  onStartRename={() => handleStartRename(workspace)}
-                  onDelete={() => handleDeleteWorkspace(workspace.id)}
+                  onStartRename={() => handleStartRename(link)}
+                  onDelete={() => removePinnedLink(link.id)}
                 />
               )
             )}
@@ -327,12 +349,12 @@ export function Sidebar() {
         </DndContext>
 
         {isCreating && (
-          <HStack gap={1} px={2}>
+          <HStack gap={1} px={2} py={1}>
             <Input
               size="sm"
-              placeholder="Workspace name"
-              value={newWorkspaceName}
-              onChange={(e) => setNewWorkspaceName(e.target.value)}
+              placeholder="URL"
+              value={newUrl}
+              onChange={(e) => setNewUrl(e.target.value)}
               onKeyDown={handleKeyDown}
               autoFocus
               variant="outline"
@@ -342,7 +364,7 @@ export function Sidebar() {
               size="xs"
               variant="ghost"
               colorPalette={accentColor}
-              onClick={handleCreateWorkspace}
+              onClick={handleCreateLink}
             >
               <IconCheck size={14} />
             </IconButton>
@@ -353,7 +375,7 @@ export function Sidebar() {
               colorPalette={accentColor}
               onClick={() => {
                 setIsCreating(false);
-                setNewWorkspaceName('');
+                setNewUrl('');
               }}
             >
               <IconX size={14} />
@@ -361,26 +383,18 @@ export function Sidebar() {
           </HStack>
         )}
 
-        {profileWorkspaces.length === 0 && !isCreating && (
+        {pinnedLinks.length === 0 && !isCreating && (
           <Text
-            fontSize="sm"
+            fontSize="xs"
             color="fg.subtle"
             px={3}
-            py={4}
+            py={2}
             textAlign="center"
           >
-            No workspaces yet.{' '}
-            <Text
-              as="span"
-              color={`${accentColor}.400`}
-              cursor="pointer"
-              onClick={() => setIsCreating(true)}
-            >
-              Create one
-            </Text>
+            No pinned links
           </Text>
         )}
-      </VStack>
+      </Box>
     </Box>
   );
 }

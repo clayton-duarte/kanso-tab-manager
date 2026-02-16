@@ -3,6 +3,7 @@ import type {
   Profile,
   WorkspaceData,
   WorkspaceMeta,
+  PinnedLink,
 } from '../github/types';
 
 /**
@@ -65,6 +66,8 @@ export interface PortableState {
   workspaces: WorkspaceMeta[];
   /** Cached workspace data by ID (all loaded workspaces, not just active) */
   workspaceDataCache: Record<string, WorkspaceData>;
+  /** Cached pinned links by profile ID */
+  pinnedLinksCache: Record<string, PinnedLink[]>;
   /** Timestamp of last sync from Gist */
   lastSyncedAt: number | null;
 }
@@ -159,6 +162,18 @@ export interface AppActions {
   togglePinLink: (linkId: string) => void;
   /** Reorder links in the active workspace */
   reorderLinks: (oldIndex: number, newIndex: number) => void;
+
+  // Pinned Links CRUD (per profile, synced to profile settings)
+  /** Add a pinned link to the active profile */
+  addPinnedLink: (url: string, title: string, favicon?: string) => string | undefined;
+  /** Remove a pinned link from the active profile */
+  removePinnedLink: (linkId: string) => void;
+  /** Update a pinned link's properties */
+  updatePinnedLink: (linkId: string, updates: Partial<PinnedLink>) => void;
+  /** Reorder pinned links in the active profile */
+  reorderPinnedLinks: (oldIndex: number, newIndex: number) => void;
+  /** Move a workspace link to pinned links */
+  moveLinkToPinned: (linkId: string) => void;
 
   // Sync (non-blocking, warns on error)
   /** Save active workspace to Gist (debounced) */

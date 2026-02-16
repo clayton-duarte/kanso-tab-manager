@@ -17,6 +17,7 @@ import {
   IconPencil,
   IconCheck,
   IconX,
+  IconPin,
 } from '@tabler/icons-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -29,7 +30,7 @@ interface LinkCardProps {
 }
 
 export function LinkCard({ link }: LinkCardProps) {
-  const { removeLink, updateLink, accentColor } = useAppStore();
+  const { removeLink, updateLink, accentColor, moveLinkToPinned } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(link.title);
   const [editUrl, setEditUrl] = useState(link.url);
@@ -256,6 +257,16 @@ export function LinkCard({ link }: LinkCardProps) {
                   >
                     <IconPencil size={14} />
                     Edit
+                  </Menu.Item>
+                  <Menu.Item
+                    value="pin"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      moveLinkToPinned(link.id);
+                    }}
+                  >
+                    <IconPin size={14} />
+                    Move to Pins
                   </Menu.Item>
                   <Menu.Item
                     value="delete"

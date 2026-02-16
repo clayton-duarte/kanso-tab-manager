@@ -202,3 +202,71 @@ export async function getCurrentTabs(): Promise<TabInfo[]> {
       pinned: false, // All workspace tabs are unpinned
     }));
 }
+
+/**
+ * Get all pinned tabs in the current window
+ * Used to save current pinned tabs to a profile
+ */
+export async function getPinnedTabs(): Promise<TabInfo[]> {
+  if (!isExtensionContext()) return [];
+
+  const tabs = await chrome.tabs.query({ currentWindow: true, pinned: true });
+
+  return tabs
+    .filter((tab) => tab.url)
+    .map((tab) => ({
+      url: tab.url!,
+      title: tab.title,
+      pinned: true,
+    }));
+}
+
+/**
+ * Close all pinned tabs in the current window
+ */
+export async function closeAllPinnedTabs(): Promise<void> {
+  if (!isExtensionContext()) return;
+
+  const tabs = await chrome.tabs.query({ currentWindow: true, pinned: true });
+  const tabIds = tabs.filter((tab) => tab.id !== undefined).map((tab) => tab.id as number);
+
+  if (tabIds.length > 0) {
+    await chrome.tabs.remove(tabIds);
+  }
+}
+
+/**
+ * Open pinned tabs at the start of the tab bar
+ * Pinned tabs are always placed at the beginning
+ */
+export async function openPinnedTabs(tabs: TabInfo[]): Promise<void> {
+  if (!isExtensionContext() || tabs.length === 0) return;
+
+  // Open pinned tabs at the start (index 0, 1, 2, etc.)
+  for (let i = 0; i < tabs.length; i++) {
+    try {
+      await chrome.tabs.create({
+        url: tabs[i].url,
+        active: false,
+        pinned: true,
+        index: i,
+      });
+    } catch (error) {
+      console.error('Failed to create pinned tab:', error);
+    }
+  }
+}
+
+/**
+ * Switch profile pinned tabs: close all pinned tabs and open new ones
+ * This is called when switching profiles
+ */
+export async function switchPinnedTabs(tabs: TabInfo[]): Promise<void> {
+  if (!isExtensionContext()) return;
+
+  // Close all existing pinned tabs first
+  await closeAllPinnedTabs();
+
+  // Open new pinned tabs
+  await openPinnedTabs(tabs);
+}

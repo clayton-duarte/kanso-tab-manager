@@ -31,6 +31,7 @@ const DEFAULT_PORTABLE: PortableState = {
   profiles: [],
   workspaces: [],
   workspaceDataCache: {},
+  pinnedLinksCache: {},
   lastSyncedAt: null,
 };
 

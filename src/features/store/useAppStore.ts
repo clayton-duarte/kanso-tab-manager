@@ -6,6 +6,7 @@ import type {
   Profile,
   WorkspaceData,
   WorkspaceMeta,
+  PinnedLink,
 } from '../github/types';
 import { DEFAULT_PROFILE_SETTINGS } from '../github/types';
 import { debounce } from '@/shared/utils/debounce';
@@ -15,7 +16,7 @@ import {
   parseProfileSettingsFilename,
   generateProfileSettingsFilename,
 } from '@/shared/utils/urlParser';
-import { switchWorkspaceTabs } from '@/shared/utils/chromeTabs';
+import { switchWorkspaceTabs, switchPinnedTabs } from '@/shared/utils/chromeTabs';
 import {
   loadSession,
   saveSession,
@@ -74,6 +75,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   profiles: [],
   workspaces: [],
   workspaceDataCache: {},
+  pinnedLinksCache: {},
   lastSyncedAt: null,
 
   // ============================================================================
@@ -487,12 +489,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
       // Sort workspaces by profile's workspaceOrder
       const sortedWorkspaces: WorkspaceMeta[] = [];
+      // Build pinnedLinksCache from profile settings
+      const pinnedLinksCache: Record<string, PinnedLink[]> = {};
       for (const profile of profiles) {
         const settings = profileSettingsMap.get(profile.name);
         const order = settings?.workspaceOrder || [];
         const profileWs = workspacesList.filter(
           (w) => w.profile === profile.name
         );
+
+        // Extract pinned links for this profile
+        pinnedLinksCache[profile.id] = settings?.pinnedLinks || [];
 
         // Sort by order array, then alphabetically for any not in order
         profileWs.sort((a, b) => {
@@ -593,6 +600,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         profiles,
         workspaces: sortedWorkspaces,
         workspaceDataCache: mergedCache,
+        pinnedLinksCache,
       });
 
       // Update session with current selections
@@ -605,6 +613,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         profiles,
         workspaces: sortedWorkspaces,
         workspaceDataCache: mergedCache,
+        pinnedLinksCache,
         activeProfileId: activeProfile.id,
         activeWorkspaceId: activeWorkspace?.id || null,
         accentColor: activeProfile.accentColor || 'gray',
@@ -630,8 +639,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
    * Works offline - uses cached data
    */
   switchProfile: (profileId: string) => {
-    const { profiles, workspaces, profileWorkspaceMap, workspaceDataCache } =
-      get();
+    const {
+      profiles,
+      workspaces,
+      profileWorkspaceMap,
+      workspaceDataCache,
+      pinnedLinksCache,
+    } = get();
     const profile = profiles.find((p) => p.id === profileId);
 
     if (!profile) return;
@@ -659,6 +673,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       activeProfileId: profileId,
       activeWorkspaceId: targetWorkspace?.id || null,
     });
+
+    // Switch pinned tabs to match the new profile
+    const profilePinnedLinks = pinnedLinksCache[profileId] || [];
+    switchPinnedTabs(
+      profilePinnedLinks.map((link) => ({
+        url: link.url,
+        title: link.title,
+        pinned: true,
+      }))
+    );
 
     // Switch to workspace (this handles tab switching)
     if (targetWorkspace) {
@@ -1614,6 +1638,196 @@ export const useAppStore = create<AppStore>((set, get) => ({
     });
 
     // Queue debounced sync to Gist
+    get().saveWorkspace();
+  },
+
+  // ============================================================================
+  // PINNED LINKS CRUD (per profile, synced to profile settings)
+  // ============================================================================
+
+  addPinnedLink: (url: string, title: string, favicon?: string) => {
+    const { activeProfileId, pinnedLinksCache, profiles, pat, gistId } = get();
+    if (!activeProfileId) return undefined;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return undefined;
+
+    const id = nanoid();
+    const newLink: PinnedLink = { id, url, title, favicon };
+    const currentLinks = pinnedLinksCache[activeProfileId] || [];
+    const updatedLinks = [...currentLinks, newLink];
+
+    set((state) => ({
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: updatedLinks,
+      },
+    }));
+
+    // Save to profile settings (background, non-blocking)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedLinks }, pat).catch(() => {
+        // Silently ignore - will retry on next sync
+      });
+    }
+
+    return id;
+  },
+
+  removePinnedLink: (linkId: string) => {
+    const { activeProfileId, pinnedLinksCache, profiles, pat, gistId } = get();
+    if (!activeProfileId) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return;
+
+    const currentLinks = pinnedLinksCache[activeProfileId] || [];
+    const updatedLinks = currentLinks.filter((link) => link.id !== linkId);
+
+    set((state) => ({
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: updatedLinks,
+      },
+    }));
+
+    // Save to profile settings (background, non-blocking)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedLinks }, pat).catch(() => {
+        // Silently ignore
+      });
+    }
+  },
+
+  updatePinnedLink: (linkId: string, updates: Partial<PinnedLink>) => {
+    const { activeProfileId, pinnedLinksCache, profiles, pat, gistId } = get();
+    if (!activeProfileId) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return;
+
+    const currentLinks = pinnedLinksCache[activeProfileId] || [];
+    const updatedLinks = currentLinks.map((link) =>
+      link.id === linkId ? { ...link, ...updates } : link
+    );
+
+    set((state) => ({
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: updatedLinks,
+      },
+    }));
+
+    // Save to profile settings (background, non-blocking)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedLinks }, pat).catch(() => {
+        // Silently ignore
+      });
+    }
+  },
+
+  reorderPinnedLinks: (oldIndex: number, newIndex: number) => {
+    const { activeProfileId, pinnedLinksCache, profiles, pat, gistId } = get();
+    if (!activeProfileId) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return;
+
+    const currentLinks = [...(pinnedLinksCache[activeProfileId] || [])];
+    const [removed] = currentLinks.splice(oldIndex, 1);
+    currentLinks.splice(newIndex, 0, removed);
+
+    set((state) => ({
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: currentLinks,
+      },
+    }));
+
+    // Save to profile settings (background, non-blocking)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: currentLinks }, pat).catch(() => {
+        // Silently ignore
+      });
+    }
+  },
+
+  moveLinkToPinned: (linkId: string) => {
+    const {
+      activeProfileId,
+      activeWorkspaceId,
+      workspaceDataCache,
+      pinnedLinksCache,
+      profiles,
+      workspaces,
+      pat,
+      gistId,
+    } = get();
+    if (!activeProfileId || !activeWorkspaceId) return;
+    if (!workspaceDataCache[activeWorkspaceId]) return;
+
+    const profile = profiles.find((p) => p.id === activeProfileId);
+    if (!profile) return;
+
+    const currentData = workspaceDataCache[activeWorkspaceId];
+    const linkToMove = currentData.links.find((link) => link.id === linkId);
+    if (!linkToMove) return;
+
+    // Create pinned link from workspace link
+    const pinnedLink: PinnedLink = {
+      id: nanoid(),
+      url: linkToMove.url,
+      title: linkToMove.title,
+      favicon: linkToMove.favicon,
+    };
+
+    // Remove from workspace
+    const updatedWorkspaceLinks = currentData.links.filter(
+      (link) => link.id !== linkId
+    );
+    const updatedWorkspaceData = {
+      ...currentData,
+      links: updatedWorkspaceLinks,
+      updatedAt: Date.now(),
+    };
+
+    // Add to pinned links
+    const currentPinnedLinks = pinnedLinksCache[activeProfileId] || [];
+    const updatedPinnedLinks = [...currentPinnedLinks, pinnedLink];
+
+    set((state) => ({
+      workspaceDataCache: {
+        ...state.workspaceDataCache,
+        [activeWorkspaceId]: updatedWorkspaceData,
+      },
+      pinnedLinksCache: {
+        ...state.pinnedLinksCache,
+        [activeProfileId]: updatedPinnedLinks,
+      },
+    }));
+
+    // Save workspace change
+    savePortable({
+      profiles,
+      workspaces,
+      workspaceDataCache: {
+        ...workspaceDataCache,
+        [activeWorkspaceId]: updatedWorkspaceData,
+      },
+      pinnedLinksCache: {
+        ...pinnedLinksCache,
+        [activeProfileId]: updatedPinnedLinks,
+      },
+    });
+
+    // Save to profile settings (background)
+    if (pat && gistId) {
+      saveProfileSettings(gistId, profile.name, { pinnedLinks: updatedPinnedLinks }, pat).catch(
+        () => {}
+      );
+    }
+
+    // Queue workspace sync
     get().saveWorkspace();
   },
 

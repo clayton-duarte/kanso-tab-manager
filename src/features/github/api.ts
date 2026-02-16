@@ -316,18 +316,30 @@ export async function fetchProfileSettings(
 
 /**
  * Save profile settings to Gist
+ * Accepts partial settings to merge with existing settings
  */
 export async function saveProfileSettings(
   gistId: string,
   profileName: string,
-  settings: ProfileSettings,
+  settings: Partial<ProfileSettings>,
   pat: string
 ): Promise<void> {
+  // Fetch existing settings first
+  const existingSettings = await fetchProfileSettings(gistId, profileName, pat);
+  
+  // Merge with new settings
+  const mergedSettings: ProfileSettings = {
+    ...DEFAULT_PROFILE_SETTINGS,
+    ...existingSettings,
+    ...settings,
+    name: profileName,
+  };
+
   const filename = generateProfileSettingsFilename(profileName);
   await updateGistFile(
     gistId,
     filename,
-    JSON.stringify(settings, null, 2),
+    JSON.stringify(mergedSettings, null, 2),
     pat
   );
 }
