@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useState } from 'react';
 import type { LinkItem } from '@/features/github/types';
 import { useAppStore } from '@/features/store/useAppStore';
+import { openOrFocusTab } from '@/shared/utils/chromeTabs';
 import { LinkEditPopover } from './LinkEditPopover';
 
 interface LinkCardProps {
@@ -39,7 +40,7 @@ export function LinkCard({ link }: LinkCardProps) {
 
   const handleOpenLink = () => {
     if (popoverOpen) return;
-    window.location.href = link.url;
+    openOrFocusTab(link.url);
   };
 
   // Native drag for external drops (to pins area)

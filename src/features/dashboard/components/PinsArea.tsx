@@ -35,6 +35,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
 import { getTabDataFromChrome, extractTitleFromUrl } from '@/shared/utils/urlParser';
+import { openOrFocusTab } from '@/shared/utils/chromeTabs';
 import type { PinnedLink } from '@/features/github/types';
 import { LinkEditPopover } from './LinkEditPopover';
 
@@ -77,7 +78,7 @@ function SortablePinnedLinkItem({
   const faviconUrl = getFaviconDisplay();
 
   const handleOpenLink = () => {
-    window.location.href = link.url;
+    openOrFocusTab(link.url);
   };
 
   return (

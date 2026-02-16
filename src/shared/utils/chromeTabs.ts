@@ -310,3 +310,28 @@ export function setupTabDataPopulator(
     chrome.tabs.onUpdated.removeListener(listener);
   };
 }
+
+/**
+ * Open a URL in a new tab, or focus it if already open
+ * If the tab is already open in the current window, focus it instead of opening a new one
+ * @param url - The URL to open or focus
+ */
+export async function openOrFocusTab(url: string): Promise<void> {
+  if (!isExtensionContext()) {
+    // Fallback for non-extension context
+    window.open(url, '_blank');
+    return;
+  }
+
+  // Check if tab is already open in current window
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const existingTab = tabs.find((tab) => tab.url === url);
+
+  if (existingTab && existingTab.id) {
+    // Tab exists - focus it
+    await chrome.tabs.update(existingTab.id, { active: true });
+  } else {
+    // Tab doesn't exist - create new tab
+    await chrome.tabs.create({ url, active: true });
+  }
+}
