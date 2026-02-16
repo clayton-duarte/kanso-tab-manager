@@ -9,7 +9,6 @@ import {
   Menu,
   Portal,
   Switch,
-  Image,
 } from '@chakra-ui/react';
 import {
   IconPlus,
@@ -42,6 +41,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '@/features/store/useAppStore';
 import { closeAllTabs } from '@/shared/utils/chromeTabs';
+import { KansoLogo } from '@/shared/components/KansoLogo';
 import type { Profile } from '@/features/github/types';
 
 interface SortableProfileItemProps {
@@ -261,7 +261,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
             onClick={closeAllTabs}
             title="Close all tabs"
           >
-            <Image src="/icons/icon48.png" alt="Kanso" boxSize="24px" />
+            <KansoLogo size="24px" accentColor={accentColor} />
             <Text
               fontSize="lg"
               fontWeight="bold"

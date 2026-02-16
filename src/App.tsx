@@ -3,9 +3,10 @@ import { Box } from '@chakra-ui/react';
 import { useAppStore } from '@/features/store/useAppStore';
 import { DashboardLayout } from '@/features/dashboard/DashboardLayout';
 import { WelcomeScreen } from '@/features/dashboard/components/WelcomeScreen';
+import { updateFavicon } from '@/shared/components/KansoLogo';
 
 function App() {
-  const { isAuthenticated, isInitializing, init, profiles, colorMode } =
+  const { isAuthenticated, isInitializing, init, profiles, colorMode, accentColor } =
     useAppStore();
 
   // Resolve color mode (system -> actual light/dark)
@@ -24,6 +25,11 @@ function App() {
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(resolvedColorMode);
   }, [resolvedColorMode]);
+
+  // Update favicon when accent color changes
+  useEffect(() => {
+    updateFavicon(accentColor);
+  }, [accentColor]);
 
   // Listen for system preference changes when in system mode
   useEffect(() => {
