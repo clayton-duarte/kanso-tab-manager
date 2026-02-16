@@ -11,6 +11,7 @@ import {
   IconButton,
   Link,
   Dialog,
+  Switch,
 } from '@chakra-ui/react';
 import {
   IconLogout,
@@ -21,6 +22,7 @@ import {
   IconPalette,
   IconX,
   IconEyeOff,
+  IconZzz,
 } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useAppStore } from '@/features/store/useAppStore';
@@ -54,6 +56,8 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
     deleteGistAndLogout,
     setAccentColor,
     isSyncing,
+    memorySaverMode,
+    setMemorySaverMode,
   } = useAppStore();
 
   const [editingPat, setEditingPat] = useState(false);
@@ -272,6 +276,34 @@ export function SettingsDrawer({ open, onOpenChange }: SettingsDrawerProps) {
                         />
                       ))}
                     </HStack>
+                  </Box>
+
+                  {/* Memory Saver Mode */}
+                  <Box borderTopWidth="1px" borderColor="border.muted" pt={4}>
+                    <HStack justifyContent="space-between" mb={2}>
+                      <HStack>
+                        <Box color="fg.muted">
+                          <IconZzz size={16} />
+                        </Box>
+                        <Text fontSize="sm" color="fg.muted">
+                          Memory Saver Mode
+                        </Text>
+                      </HStack>
+                      <Switch.Root
+                        colorPalette={accentColor}
+                        checked={memorySaverMode}
+                        onCheckedChange={(e) => setMemorySaverMode(e.checked)}
+                      >
+                        <Switch.HiddenInput />
+                        <Switch.Control>
+                          <Switch.Thumb />
+                        </Switch.Control>
+                      </Switch.Root>
+                    </HStack>
+                    <Text fontSize="xs" color="fg.subtle">
+                      When enabled, tabs opened when switching workspaces will
+                      start suspended to save memory.
+                    </Text>
                   </Box>
 
                   {/* Hide Chrome Footer Tip */}

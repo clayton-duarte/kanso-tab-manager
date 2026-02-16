@@ -74,10 +74,14 @@ export async function closeAllTabs(): Promise<void> {
 /**
  * Open a tab without loading it immediately
  * Chrome will lazy-load the tab when the user clicks on it
+ * @param tab - Tab information to create
+ * @param index - Position to create the tab
+ * @param memorySaverMode - If true, discard the tab early to save memory
  */
 export async function openSuspendedTab(
   tab: TabInfo,
-  index?: number
+  index?: number,
+  memorySaverMode: boolean = false
 ): Promise<chrome.tabs.Tab | null> {
   if (!isExtensionContext()) return null;
 
@@ -90,10 +94,37 @@ export async function openSuspendedTab(
       index,
     });
 
-    // Note: We don't call chrome.tabs.discard() because:
-    // 1. It can cause about:blank if called before the tab loads
-    // 2. Chrome already lazy-loads inactive tabs in most cases
-    // 3. The discardAutoDiscardable property handles this better
+    // When memory saver mode is enabled, discard as soon as URL is set
+    // This suspends the tab before it fully loads, saving CPU and memory
+    if (memorySaverMode && createdTab.id) {
+      const tabId = createdTab.id;
+      const targetUrl = tab.url;
+
+      // Listen for the URL to be set (status 'loading'), then discard immediately
+      // This is faster than waiting for 'complete' - stops loading early
+      const listener = (
+        updatedTabId: number,
+        changeInfo: { status?: string; url?: string }
+      ) => {
+        // Discard when we see the URL is set or status is loading with our URL
+        if (updatedTabId === tabId && (changeInfo.url === targetUrl || changeInfo.status === 'loading')) {
+          // Remove listener first to avoid multiple calls
+          chrome.tabs.onUpdated.removeListener(listener);
+
+          // Discard the tab immediately to stop loading and free memory
+          chrome.tabs.discard(tabId).catch(() => {
+            // Silently ignore - some tabs can't be discarded
+          });
+        }
+      };
+
+      chrome.tabs.onUpdated.addListener(listener);
+
+      // Cleanup: remove listener after 10 seconds if nothing happens
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+      }, 10000);
+    }
 
     return createdTab;
   } catch (error) {
@@ -105,8 +136,13 @@ export async function openSuspendedTab(
 /**
  * Open multiple tabs in order, all placed after the dashboard tab
  * Returns after all tabs are created
+ * @param tabs - Array of tabs to open
+ * @param memorySaverMode - If true, discard tabs after creation to save memory
  */
-export async function openTabsInOrder(tabs: TabInfo[]): Promise<void> {
+export async function openTabsInOrder(
+  tabs: TabInfo[],
+  memorySaverMode: boolean = false
+): Promise<void> {
   if (!isExtensionContext() || tabs.length === 0) return;
 
   // Get the currently active tab (dashboard) to place new tabs after it
@@ -120,22 +156,27 @@ export async function openTabsInOrder(tabs: TabInfo[]): Promise<void> {
 
   // Open tabs sequentially to maintain order
   for (let i = 0; i < tabs.length; i++) {
-    await openSuspendedTab(tabs[i], startIndex + i);
+    await openSuspendedTab(tabs[i], startIndex + i, memorySaverMode);
   }
 }
 
 /**
  * Switch workspace: close all tabs and open new ones
  * This is the main function called when switching workspaces
+ * @param tabs - Array of tabs to open in the new workspace
+ * @param memorySaverMode - If true, discard tabs after creation to save memory
  */
-export async function switchWorkspaceTabs(tabs: TabInfo[]): Promise<void> {
+export async function switchWorkspaceTabs(
+  tabs: TabInfo[],
+  memorySaverMode: boolean = false
+): Promise<void> {
   if (!isExtensionContext()) return;
 
   // Close all existing tabs first
   await closeAllTabs();
 
   // Open new tabs in order, suspended
-  await openTabsInOrder(tabs);
+  await openTabsInOrder(tabs, memorySaverMode);
 }
 
 /**

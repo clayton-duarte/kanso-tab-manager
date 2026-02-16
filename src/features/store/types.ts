@@ -46,6 +46,8 @@ export interface SessionState {
   profileWorkspaceMap: Record<string, string>;
   /** Color mode preference (light/dark/system) - device-specific */
   colorMode: ColorMode;
+  /** Memory saver mode - suspends tabs when switching workspaces */
+  memorySaverMode: boolean;
 }
 
 // ============================================================================
@@ -169,6 +171,8 @@ export interface AppActions {
   setAccentColor: (color: AccentColor) => void;
   /** Set color mode preference */
   setColorMode: (mode: ColorMode) => void;
+  /** Set memory saver mode preference */
+  setMemorySaverMode: (mode: boolean) => void;
 
   // Error handling
   /** Clear sync error warning */

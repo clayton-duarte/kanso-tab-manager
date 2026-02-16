@@ -66,6 +66,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeWorkspaceId: null,
   profileWorkspaceMap: {},
   colorMode: 'system',
+  memorySaverMode: false,
 
   // ============================================================================
   // PORTABLE STATE (synced to Gist)
@@ -106,6 +107,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId,
         profileWorkspaceMap,
         colorMode,
+        memorySaverMode,
       } = session;
 
       // No credentials = not authenticated
@@ -114,6 +116,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           isInitializing: false,
           isAuthenticated: false,
           colorMode,
+          memorySaverMode,
         });
         return;
       }
@@ -138,6 +141,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         activeWorkspaceId: activeWorkspace?.id || null,
         profileWorkspaceMap,
         colorMode,
+        memorySaverMode,
         // Portable
         profiles: portable.profiles,
         workspaces: portable.workspaces,
@@ -666,7 +670,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
             url: link.url,
             title: link.title,
             pinned: link.pinned,
-          }))
+          })),
+          get().memorySaverMode
         );
       } else {
         // Load workspace data if not cached (this will also switch tabs)
@@ -674,7 +679,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
     } else {
       // No workspace - close all tabs
-      switchWorkspaceTabs([]);
+      switchWorkspaceTabs([], get().memorySaverMode);
     }
   },
 
@@ -719,7 +724,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
           url: link.url,
           title: link.title,
           pinned: link.pinned,
-        }))
+        })),
+        get().memorySaverMode
       );
 
       return;
@@ -746,7 +752,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }));
 
       // Close all tabs (empty workspace)
-      switchWorkspaceTabs([]);
+      switchWorkspaceTabs([], get().memorySaverMode);
 
       return;
     }
@@ -775,7 +781,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         }));
 
         // Close all tabs (empty workspace)
-        switchWorkspaceTabs([]);
+        switchWorkspaceTabs([], get().memorySaverMode);
 
         return;
       }
@@ -826,7 +832,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
           url: link.url,
           title: link.title,
           pinned: link.pinned,
-        }))
+        })),
+        get().memorySaverMode
       );
     } catch (error) {
       set({
@@ -1711,6 +1718,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setColorMode: (colorMode: ColorMode) => {
     set({ colorMode });
     saveSession({ colorMode });
+  },
+
+  setMemorySaverMode: (memorySaverMode: boolean) => {
+    set({ memorySaverMode });
+    saveSession({ memorySaverMode });
   },
 
   // ============================================================================

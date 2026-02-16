@@ -24,6 +24,7 @@ const DEFAULT_SESSION: SessionState = {
   activeWorkspaceId: null,
   profileWorkspaceMap: {},
   colorMode: 'system',
+  memorySaverMode: false,
 };
 
 const DEFAULT_PORTABLE: PortableState = {
