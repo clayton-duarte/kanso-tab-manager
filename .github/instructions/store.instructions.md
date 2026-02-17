@@ -1,3 +1,7 @@
+---
+applyTo: "src/features/store/**"
+---
+
 # Kanso Tab Manager - State Management Architecture
 
 ## Overview
@@ -63,12 +67,13 @@ interface PortableState {
   profiles: Profile[];
   workspaces: WorkspaceMeta[];
   workspaceDataCache: Record<string, WorkspaceData>;
+  pinnedLinksCache: Record<string, PinnedLink[]>;
 }
 ```
 
 **What syncs:**
 
-- Profile configurations (name, accent color)
+- Profile configurations (name, accent color, pinned links)
 - Workspace metadata and content
 - Links, their order, and pin status
 
@@ -228,15 +233,18 @@ interface WorkspaceData {
 
 ### When `updatedAt` is Set
 
-| Action            | Sets updatedAt                       |
-| ----------------- | ------------------------------------ |
-| `addLink`         | ✅ Yes                               |
-| `removeLink`      | ✅ Yes                               |
-| `updateLink`      | ✅ Yes                               |
-| `togglePinLink`   | ✅ Yes                               |
-| `reorderLinks`    | ✅ Yes                               |
-| `renameWorkspace` | ✅ Yes                               |
-| `createWorkspace` | ✅ Yes (via `createdAt = updatedAt`) |
+| Action                 | Sets updatedAt                       |
+| ---------------------- | ------------------------------------ |
+| `addLink`              | ✅ Yes                               |
+| `removeLink`           | ✅ Yes                               |
+| `updateLink`           | ✅ Yes                               |
+| `togglePinLink`        | ✅ Yes                               |
+| `reorderLinks`         | ✅ Yes                               |
+| `replaceAllLinks`      | ✅ Yes                               |
+| `moveLinkToPinned`     | ✅ Yes (removes from workspace)      |
+| `movePinnedToWorkspace`| ✅ Yes (adds to workspace)           |
+| `renameWorkspace`      | ✅ Yes                               |
+| `createWorkspace`      | ✅ Yes (via `createdAt = updatedAt`) |
 
 ---
 
@@ -288,6 +296,7 @@ interface WorkspaceData {
 │  [Profile].json                    Profile settings                         │
 │  ├── name: string                                                          │
 │  ├── accentColor: "gray" | "red" | ...                                     │
+│  ├── pinnedLinks: PinnedLink[]     Links pinned to this profile            │
 │  ├── createdAt: number                                                     │
 │  └── workspaceOrder: string[]      Ordered workspace IDs                   │
 │                                                                             │
@@ -389,6 +398,7 @@ interface AppStore {
   profiles: Profile[];
   workspaces: WorkspaceMeta[];
   workspaceDataCache: Record<string, WorkspaceData>;
+  pinnedLinksCache: Record<string, PinnedLink[]>; // Profile ID → Pinned links
   lastSyncedAt: number | null;
 
   // ═══════════════════════════════════════════════════════════════════════
